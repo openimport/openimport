@@ -11,13 +11,14 @@ It is a library, not a service. Files are processed locally and your application
 
 ## How it fits together
 
-```
-@openimport/core      the engine: session, matching, transforms, validation
-@openimport/csv …     format plugins: csv, xlsx, json, xml
-@openimport/react     hooks for building your own UI
-@openimport/ui        a ready-made importer component
-@openimport/worker    optional: run imports in a Web Worker
-```
+| Package | |
+|---|---|
+| [`@openimport/core`](https://www.npmjs.com/package/@openimport/core) | the engine: session, matching, transforms, validation |
+| [`@openimport/csv`](https://www.npmjs.com/package/@openimport/csv), [`xlsx`](https://www.npmjs.com/package/@openimport/xlsx), [`json`](https://www.npmjs.com/package/@openimport/json), [`xml`](https://www.npmjs.com/package/@openimport/xml) | format plugins |
+| [`@openimport/react`](https://www.npmjs.com/package/@openimport/react) | hooks for building your own UI |
+| [`@openimport/ui`](https://www.npmjs.com/package/@openimport/ui) | a ready-made importer component |
+| [`@openimport/worker`](https://www.npmjs.com/package/@openimport/worker) | optional: run imports in a Web Worker |
+| [`@openimport/ai`](https://www.npmjs.com/package/@openimport/ai) | optional: column matching with your own model |
 
 You always need `core` and at least one format plugin. `react` and `ui` are optional.
 

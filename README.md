@@ -6,6 +6,10 @@
 
 Independent format plugins, portable mappings, local processing by default, and persistence your application owns. The mapping experience is modelled on tools like OneSchema; the scope is the import itself, with no backend, hosted service or per-row pricing.
 
+[![npm](https://img.shields.io/npm/v/@openimport/core?color=09090b)](https://www.npmjs.com/org/openimport)
+[![CI](https://github.com/openimport/openimport/actions/workflows/ci.yml/badge.svg)](https://github.com/openimport/openimport/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-09090b)](./LICENSE)
+
 [Quick start](#quick-start) · [Why](#why-openimport) · [Packages](#packages) · [Docs](./docs/index.md) · [Playground](#playground) · [Roadmap](./docs/roadmap.md)
 
 <img src=".github/assets/mapping.png" alt="Column mapping with automatic suggestions and live previews" width="880" />
@@ -124,17 +128,17 @@ const importer = createImporter({
 
 ## Packages
 
-| Package | Description |
-|---|---|
-| [`@openimport/core`](./packages/core) | Headless engine: schema, session state machine, matching, transforms, validation, recipes, streaming runs. Zero dependencies. |
-| [`@openimport/react`](./packages/react) | Provider and hooks (`useImportState`, `useUpload`, `useMapping`, `useReview`) for building a custom UI. |
-| [`@openimport/ui`](./packages/ui) | The ready-made `<Importer>` / `<ImporterDialog>` plus composable step components. |
-| [`@openimport/csv`](./packages/csv) | Streaming CSV/TSV with delimiter and encoding detection. Zero dependencies. |
-| [`@openimport/xlsx`](./packages/xlsx) | Excel workbooks, one dataset per sheet. |
-| [`@openimport/json`](./packages/json) | JSON (record discovery in nested documents) and JSON Lines. |
-| [`@openimport/xml`](./packages/xml) | XML with repeated-element discovery. |
-| [`@openimport/worker`](./packages/worker) | Run sessions in a Web Worker; the UI fetches only the rows it shows. |
-| [`@openimport/ai`](./packages/ai) | Bring-your-own-model column matching, including split/combine suggestions. |
+| Package | npm | Description |
+|---|---|---|
+| [`@openimport/core`](./packages/core) | [![npm](https://img.shields.io/npm/v/@openimport/core?label=&color=09090b)](https://www.npmjs.com/package/@openimport/core) | Headless engine: schema, session state machine, matching, transforms, validation, recipes, streaming runs. Zero dependencies. |
+| [`@openimport/react`](./packages/react) | [![npm](https://img.shields.io/npm/v/@openimport/react?label=&color=09090b)](https://www.npmjs.com/package/@openimport/react) | Provider and hooks (`useImportState`, `useUpload`, `useMapping`, `useReview`) for building a custom UI. |
+| [`@openimport/ui`](./packages/ui) | [![npm](https://img.shields.io/npm/v/@openimport/ui?label=&color=09090b)](https://www.npmjs.com/package/@openimport/ui) | The ready-made `<Importer>` / `<ImporterDialog>` plus composable step components. |
+| [`@openimport/csv`](./packages/csv) | [![npm](https://img.shields.io/npm/v/@openimport/csv?label=&color=09090b)](https://www.npmjs.com/package/@openimport/csv) | Streaming CSV/TSV with delimiter and encoding detection. Zero dependencies. |
+| [`@openimport/xlsx`](./packages/xlsx) | [![npm](https://img.shields.io/npm/v/@openimport/xlsx?label=&color=09090b)](https://www.npmjs.com/package/@openimport/xlsx) | Excel workbooks, one dataset per sheet. |
+| [`@openimport/json`](./packages/json) | [![npm](https://img.shields.io/npm/v/@openimport/json?label=&color=09090b)](https://www.npmjs.com/package/@openimport/json) | JSON (record discovery in nested documents) and JSON Lines. |
+| [`@openimport/xml`](./packages/xml) | [![npm](https://img.shields.io/npm/v/@openimport/xml?label=&color=09090b)](https://www.npmjs.com/package/@openimport/xml) | XML with repeated-element discovery. |
+| [`@openimport/worker`](./packages/worker) | [![npm](https://img.shields.io/npm/v/@openimport/worker?label=&color=09090b)](https://www.npmjs.com/package/@openimport/worker) | Run sessions in a Web Worker; the UI fetches only the rows it shows. |
+| [`@openimport/ai`](./packages/ai) | [![npm](https://img.shields.io/npm/v/@openimport/ai?label=&color=09090b)](https://www.npmjs.com/package/@openimport/ai) | Bring-your-own-model column matching, including split/combine suggestions. |
 
 ## Build your own UI
 

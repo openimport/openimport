@@ -140,7 +140,7 @@ function Hero() {
             Messy spreadsheets in. Typed records out.
           </h1>
           <p className="max-w-[34rem] text-[17px] leading-relaxed text-zinc-400">
-            OpenImport is a headless TypeScript engine for user-facing data imports. It reads CSV, Excel, JSON and XML, finds the header,
+            OpenImport is a <span className="lp-sketch">headless TypeScript engine for user-facing data imports</span>. It reads CSV, Excel, JSON and XML, finds the header,
             matches columns to your schema, fixes formats, validates every row and hands your code typed records. In the browser, a worker
             or on your server.
           </p>
@@ -650,7 +650,12 @@ function Plugins() {
             {PACKAGES.map(([name, what, deps]) => (
               <div key={name} className="grid grid-cols-[1fr_auto] gap-4 border-b border-zinc-900 px-4 py-3 last:border-b-0">
                 <span className="flex flex-col gap-0.5">
-                  <span className="font-mono text-[12.5px] text-zinc-200">{name}</span>
+                  <a
+                    href={`https://www.npmjs.com/package/${name}`}
+                    className="w-fit font-mono text-[12.5px] text-zinc-200 underline-offset-4 hover:underline"
+                  >
+                    {name}
+                  </a>
                   <span className="text-[13px] text-zinc-500">{what}</span>
                 </span>
                 <span className={cn('font-mono text-[11.5px]', deps === '—' ? 'text-emerald-400' : 'text-zinc-500')}>
