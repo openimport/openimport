@@ -1,0 +1,341 @@
+/*
+ * Background motion for the landing page. Everything is slow (14–26 s loops),
+ * low-contrast and decorative; it stops entirely for prefers-reduced-motion.
+ */
+
+/* Spreadsheet cells drift in, get "parsed" by the sweep and fade out. */
+@keyframes oi-cell-drift {
+  0% {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(96px);
+  }
+}
+
+/* A raw value is swapped for its normalised form halfway through. */
+@keyframes oi-raw-out {
+  0%,
+  44% {
+    opacity: 1;
+  }
+  52%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes oi-clean-in {
+  0%,
+  48% {
+    opacity: 0;
+  }
+  56%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Thin rule that writes itself under a row, like a parser cursor. */
+@keyframes oi-write {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  8% {
+    opacity: 1;
+  }
+  36% {
+    transform: scaleX(1);
+  }
+  84% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* The parser pass: a soft vertical band crossing the hero. */
+@keyframes oi-sweep {
+  from {
+    transform: translateX(-30vw);
+  }
+  to {
+    transform: translateX(130vw);
+  }
+}
+
+/* ── The pipeline: one record's journey, as % of its lane's --dur ─────────── */
+
+@keyframes oi-lane-life {
+  0% {
+    opacity: 0;
+  }
+  3%,
+  52% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+/* the raw line "types" in, then dims once it has been mapped */
+@keyframes oi-raw-type {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  12% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  36%,
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0.45;
+  }
+}
+@keyframes oi-link1 {
+  0%,
+  12% {
+    transform: scaleX(0);
+  }
+  22%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+@keyframes oi-packet1 {
+  0%,
+  11% {
+    left: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  22% {
+    left: calc(100% - 5px);
+    opacity: 1;
+  }
+  24%,
+  100% {
+    left: calc(100% - 5px);
+    opacity: 0;
+  }
+}
+@keyframes oi-cell-in {
+  0%,
+  22% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  26%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes oi-link2 {
+  0%,
+  30% {
+    transform: scaleX(0);
+  }
+  40%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+@keyframes oi-packet2 {
+  0%,
+  29% {
+    left: 0%;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  40% {
+    left: calc(100% - 5px);
+    opacity: 1;
+  }
+  42%,
+  100% {
+    left: calc(100% - 5px);
+    opacity: 0;
+  }
+}
+/* validation reaches the bad cell */
+@keyframes oi-flag {
+  0%,
+  40% {
+    color: var(--color-zinc-500);
+    border-color: var(--color-zinc-800);
+    background-color: transparent;
+  }
+  44%,
+  100% {
+    color: rgb(248 113 113 / 0.9);
+    border-color: rgb(153 27 27 / 0.8);
+    background-color: rgb(239 68 68 / 0.08);
+  }
+}
+@keyframes oi-status {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  44%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-lane {
+  animation: oi-lane-life var(--dur) linear var(--delay) infinite both;
+}
+.lp-lane .lp-raw-row {
+  animation: oi-raw-type var(--dur) steps(48, end) var(--delay) infinite both;
+}
+.lp-lane .lp-link1,
+.lp-lane .lp-link2 {
+  transform-origin: left center;
+}
+.lp-lane .lp-link1 {
+  animation: oi-link1 var(--dur) ease-out var(--delay) infinite both;
+}
+.lp-lane .lp-packet1 {
+  animation: oi-packet1 var(--dur) ease-in-out var(--delay) infinite both;
+}
+.lp-lane .lp-cell-in {
+  animation: oi-cell-in var(--dur) ease-out calc(var(--delay) + var(--i, 0) * 0.18s) infinite both;
+}
+.lp-lane .lp-cell-in.lp-flag {
+  animation:
+    oi-cell-in var(--dur) ease-out calc(var(--delay) + var(--i, 0) * 0.18s) infinite both,
+    oi-flag var(--dur) linear var(--delay) infinite both;
+}
+.lp-lane .lp-link2 {
+  animation: oi-link2 var(--dur) ease-out var(--delay) infinite both;
+}
+.lp-lane .lp-packet2 {
+  animation: oi-packet2 var(--dur) ease-in-out var(--delay) infinite both;
+}
+.lp-lane .lp-status {
+  animation: oi-status var(--dur) ease-out var(--delay) infinite both;
+}
+
+/* Hero card: one input row at a time is "read". */
+@keyframes oi-scan {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(100%);
+  }
+  50% {
+    transform: translateY(200%);
+  }
+  75% {
+    transform: translateY(300%);
+  }
+}
+
+@keyframes oi-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.lp-cell {
+  animation: oi-cell-drift var(--dur, 18s) linear var(--delay, 0s) infinite both;
+}
+.lp-cell .lp-raw {
+  animation: oi-raw-out var(--dur, 18s) linear var(--delay, 0s) infinite both;
+}
+.lp-cell .lp-clean {
+  animation: oi-clean-in var(--dur, 18s) linear var(--delay, 0s) infinite both;
+}
+.lp-write {
+  transform-origin: left center;
+  animation: oi-write var(--dur, 16s) cubic-bezier(0.2, 0.7, 0.2, 1) var(--delay, 0s) infinite both;
+}
+.lp-sweep {
+  animation: oi-sweep 22s linear infinite;
+}
+.lp-scan {
+  animation: oi-scan 8s steps(1, end) infinite;
+}
+.lp-caret {
+  animation: oi-blink 1.1s steps(1, end) infinite;
+}
+
+/* Bars in the import trace grow in once when scrolled into view. */
+.lp-bar {
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--delay, 0ms);
+}
+.lp-inview .lp-bar {
+  transform: scaleX(1);
+}
+
+/* Fade sections in as they enter. */
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+.lp-reveal.lp-inview {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Show the pipeline's end state, without motion. */
+  .lp-lane,
+  .lp-lane *,
+  .lp-cell,
+  .lp-cell .lp-raw,
+  .lp-cell .lp-clean,
+  .lp-write,
+  .lp-sweep,
+  .lp-scan,
+  .lp-caret {
+    animation: none !important;
+  }
+  .lp-cell .lp-raw,
+  .lp-lane .lp-packet1,
+  .lp-lane .lp-packet2 {
+    opacity: 0;
+  }
+  .lp-lane .lp-flag {
+    color: rgb(248 113 113 / 0.9);
+    border-color: rgb(153 27 27 / 0.8);
+  }
+  .lp-bar,
+  .lp-reveal {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+*.tsbuildinfo
+.DS_Store
+.vite
+.turbo
+*.log
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/

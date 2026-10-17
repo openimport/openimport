@@ -1,0 +1,16 @@
+{
+  "name": "@openimport/example-benchmark",
+  "private": true,
+  "type": "module",
+  "description": "Reproduces the per-stage timings shown on the landing page.",
+  "scripts": {
+    "start": "tsx --conditions=@openimport/source index.ts"
+  },
+  "dependencies": {
+    "@openimport/core": "workspace:^",
+    "@openimport/csv": "workspace:^"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

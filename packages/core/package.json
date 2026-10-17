@@ -1,0 +1,60 @@
+{
+  "name": "@openimport/core",
+  "version": "0.1.0",
+  "description": "Headless, framework-agnostic data import engine: parse, map, transform, validate.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "import",
+    "csv",
+    "excel",
+    "data-import",
+    "mapping",
+    "headless",
+    "validation",
+    "oneschema",
+    "flatfile"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openimport/openimport.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/openimport/openimport#readme",
+  "bugs": "https://github.com/openimport/openimport/issues",
+  "exports": {
+    ".": {
+      "@openimport/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@openimport/source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  }
+}

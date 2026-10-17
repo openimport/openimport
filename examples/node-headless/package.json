@@ -1,0 +1,17 @@
+{
+  "name": "@openimport/example-node-headless",
+  "private": true,
+  "type": "module",
+  "description": "Headless, streaming import on the server — no UI.",
+  "scripts": {
+    "start": "tsx --conditions=@openimport/source index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openimport/core": "workspace:^",
+    "@openimport/csv": "workspace:^"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

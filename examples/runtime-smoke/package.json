@@ -1,0 +1,16 @@
+{
+  "name": "@openimport/example-runtime-smoke",
+  "private": true,
+  "type": "module",
+  "description": "Runs one import against the built packages in Node, Bun and Deno (CI uses it to back the runtime claims).",
+  "scripts": {
+    "node": "node smoke.mjs",
+    "bun": "bun smoke.mjs",
+    "deno": "deno run --allow-read --allow-env smoke.mjs"
+  },
+  "dependencies": {
+    "@openimport/core": "workspace:^",
+    "@openimport/csv": "workspace:^",
+    "@openimport/json": "workspace:^"
+  }
+}

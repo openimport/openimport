@@ -1,0 +1,27 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Schema, importer config and — if possible — a small (anonymised!) sample file or its first lines.
+      render: ts
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "@openimport/core 0.1.0, @openimport/ui 0.1.0, React 19, Chrome 140"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Parsing / formats, Column matching, Transforms, Validation, Review grid, UI / styling, Headless / run(), Other]

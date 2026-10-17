@@ -1,0 +1,55 @@
+{
+  "name": "@openimport/csv",
+  "version": "0.1.0",
+  "description": "Zero-dependency streaming CSV/TSV format plugin for OpenImport (encoding + delimiter detection).",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "openimport",
+    "import",
+    "data-import",
+    "csv",
+    "tsv",
+    "parser",
+    "streaming"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openimport/openimport.git",
+    "directory": "packages/csv"
+  },
+  "homepage": "https://github.com/openimport/openimport#readme",
+  "bugs": "https://github.com/openimport/openimport/issues",
+  "exports": {
+    ".": {
+      "@openimport/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@openimport/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@openimport/core": "workspace:^"
+  }
+}

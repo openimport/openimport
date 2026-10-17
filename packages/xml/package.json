@@ -1,0 +1,55 @@
+{
+  "name": "@openimport/xml",
+  "version": "0.1.0",
+  "description": "XML format plugin for OpenImport with automatic record discovery.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "openimport",
+    "import",
+    "data-import",
+    "xml"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openimport/openimport.git",
+    "directory": "packages/xml"
+  },
+  "homepage": "https://github.com/openimport/openimport#readme",
+  "bugs": "https://github.com/openimport/openimport/issues",
+  "exports": {
+    ".": {
+      "@openimport/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@openimport/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@openimport/core": "workspace:^"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.11.2"
+  }
+}

@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an idea or a new plugin
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Which import scenario is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How could openimport solve it? Could it be a plugin?

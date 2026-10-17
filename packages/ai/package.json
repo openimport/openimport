@@ -1,0 +1,55 @@
+{
+  "name": "@openimport/ai",
+  "version": "0.1.0",
+  "description": "Bring-your-own-model AI column matching for openimport.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "import",
+    "csv",
+    "mapping",
+    "ai",
+    "llm",
+    "column-matching",
+    "openimport"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openimport/openimport.git",
+    "directory": "packages/ai"
+  },
+  "homepage": "https://github.com/openimport/openimport#readme",
+  "bugs": "https://github.com/openimport/openimport/issues",
+  "exports": {
+    ".": {
+      "@openimport/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@openimport/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@openimport/core": "workspace:^"
+  }
+}
