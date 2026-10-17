@@ -43,8 +43,15 @@ In this order: data integrity first, then shared semantics, then contracts, then
 4. **Integration examples and accurate docs**
    - [x] Reproducible benchmark (`pnpm bench`), runtime smoke test on Node, Bun and Deno
    - [ ] Examples for Next.js, Remix and a queue worker
-5. **Richer mapping and correction**
+5. **Server imports at any size** (Lambda, Cloudflare Workers, queues)
+   - [ ] `sourceFromStream()`: import an S3, R2 or HTTP body without buffering the file
+   - [ ] **Resumable `run()`**: every chunk reports where it ended, `run(file, { startAt })` continues there (CSV, JSON Lines), for time limits, queues and durable workflows
+   - [ ] **Swappable uniqueness check**, e.g. your database's unique constraint instead of the in-memory index
+   - [ ] Streaming JSON and XML readers
+   - [ ] Cloudflare Workers in the runtime smoke test, and a resumable queue-worker example
+6. **Richer mapping and correction**
    - [x] **Imports in a Web Worker** (`@openimport/worker`), optionally only above a file size
+   - [x] Edits re-check only the rows they affect, so the review stays fast at a million rows
    - [ ] **Undo / redo** in the review step
    - [ ] **Schema changes**: re-map saved recipes when fields are added, renamed or removed
    - [ ] Bulk fixes: "apply this fix to all 37 similar cells"

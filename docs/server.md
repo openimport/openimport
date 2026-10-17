@@ -6,9 +6,10 @@ description: Import without a UI, in Node, Bun, Deno or a worker.
 `importer.run()` runs the same pipeline as the interactive importer and yields batches: same limits, transforms, rules, Standard Schema, uniqueness and `validateBatch`.
 
 ```ts title="jobs/import.ts"
-import { readFile } from 'node:fs/promises'
+import { openAsBlob } from 'node:fs'
 
-const file = new File([await readFile('export.csv')], 'export.csv')
+// Read from disk as the import goes, instead of loading the file into memory
+const file = new File([await openAsBlob('export.csv')], 'export.csv')
 
 for await (const chunk of importer.run(file, { batchSize: 5000 })) {
   await db.contacts.insertMany(chunk.records)
@@ -49,7 +50,16 @@ Rows are validated and yielded `batchSize` at a time. What else stays in memory 
 | CSV, JSON Lines | streamed; memory doesn't grow with the file |
 | JSON, XML, Excel | the whole document is parsed first |
 
-`unique` fields keep one entry per distinct value, so very large imports with unique fields grow with the number of distinct values.
+`unique` fields keep one entry per distinct value, about 100 MB per million values. Without unique fields, a million-row CSV runs in a few MB of heap.
+
+---
+
+## Serverless
+
+- **AWS Lambda:** read large files from S3, not the request body (6 MB). Download to `/tmp` and open with `openAsBlob`, so the file isn't held in memory. A run has to finish within the function's time limit (15 minutes; a CSV runs at roughly 200,000 rows a second).
+- **Cloudflare Workers:** memory is the limit (128 MB), and an R2 object's `.blob()` holds the whole file in memory. CSV files of a few tens of MB work; very large files, many unique values or big Excel files don't fit yet.
+
+Streaming input, resumable runs and a swappable uniqueness check for these platforms are on the [roadmap](./roadmap.md).
 
 ---
 

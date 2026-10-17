@@ -107,6 +107,13 @@ await session.confirmMapping()
 const { stats } = session.getState()
 lap('rows.validate', `${stats.withErrors.toLocaleString()} rows with errors`)
 
+// Fix ten invalid emails one by one, like a user in the review grid.
+last = performance.now()
+const broken = session.getRows({ filter: 'errors', field: 'email' }, 0, 10)
+for (const row of broken) session.editCell(row.id, 'email', `fixed-${row.id}@beispiel.de`)
+const editMs = (performance.now() - last) / Math.max(1, broken.length)
+lap('review.edit', `${broken.length} cells fixed, ${editMs.toFixed(2)} ms per edit`)
+
 session.deleteInvalidRows()
 last = performance.now()
 let batches = 0

@@ -28,7 +28,7 @@ import type {
   SubmitResult,
 } from './types'
 import { createId, isAbortError, stringify, throwIfAborted, yieldToMain } from './utils'
-import { applyUniqueness, computeStats, createRowProcessor, dedupeStandard, hasErrors, type RowProcessor } from './validate'
+import { computeStats, createRowProcessor, dedupeStandard, hasErrors, LiveRows, type RowProcessor } from './validate'
 
 const PREVIEW_ROWS = 50
 const VALIDATION_CHUNK = 2000
@@ -90,6 +90,9 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
   #accepted = new Set<string>()
   #rejected: RowIssue[] = []
   #history: Step[] = []
+  /** Incremental uniqueness and stats for the current rows, so an edit doesn't touch every row. */
+  #live: LiveRows | null = null
+  #sourceById: { for: SourceRow[]; map: Map<string, SourceRow> } | null = null
 
   constructor(importer: Importer<T>) {
     this.importer = importer
@@ -507,7 +510,7 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
     const total = this.#sourceRows.length
     this.store.set({ busy: 'validating', progress: { processed: 0, total } })
 
-    let rows: ReviewRow[] = new Array(total)
+    const rows: ReviewRow[] = new Array(total)
     const pending: Promise<void>[] = []
     for (let i = 0; i < total; i++) {
       const source = this.#sourceRows[i] as SourceRow
@@ -521,14 +524,16 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
       }
     }
     await Promise.all(pending)
-    rows = applyUniqueness(rows, this.schema)
-    this.store.set({ rows, stats: computeStats(rows), progress: null })
-    await this.#runBatchValidation(rows, signal)
-    const { stats } = this.getState()
+    // Uniqueness via the edit index, built now while every row is touched anyway.
+    this.#live = new LiveRows(rows, this.schema)
+    this.#indexSources()
+    this.store.set({ rows: this.#live.rows, stats: this.#live.stats, progress: null })
+    await this.#runBatchValidation(this.#live.rows, signal)
+    const final = this.getState().stats
     this.#emit({
       type: 'validation:completed',
-      errors: stats.errorCount,
-      warnings: stats.warningCount,
+      errors: final.errorCount,
+      warnings: final.warningCount,
       durationMs: performance.now() - started,
     })
   }
@@ -542,18 +547,51 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
       this.importer.config.batchSize ?? 1000,
     )
     for (const r of target) this.#asyncIssues.set(r.id, found.get(r.id) ?? [])
-    const ids = new Set(target.map((r) => r.id))
-    const rows = this.getState().rows.map((row) => {
-      if (!ids.has(row.id)) return row
-      const extra = found.get(row.id) ?? []
-      const base = row.issues.filter((i) => !i.async)
-      if (!extra.length && base.length === row.issues.length) return row
-      return { ...row, issues: [...base, ...extra] }
-    })
-    this.store.set({ rows, stats: computeStats(rows) })
+    this.#replaceRows(
+      (row) => {
+        const extra = found.get(row.id) ?? []
+        const base = row.issues.filter((i) => !i.async)
+        if (!extra.length && base.length === row.issues.length) return row
+        return { ...row, issues: [...base, ...extra] }
+      },
+      target.map((r) => r.id),
+    )
   }
 
   // ───────────────────────────────────────────────────────────── review
+
+  /** Replace some review rows (by id) without recomputing every row. */
+  #replaceRows(
+    replace: (row: ReviewRow) => ReviewRow | undefined,
+    ids: Iterable<string>,
+    after: () => Partial<SessionState> = () => ({}),
+  ): void {
+    const current = this.getState().rows
+    if (!this.#live?.describes(current)) this.#live = new LiveRows(current, this.schema)
+    const changes = new Map<number, ReviewRow>()
+    for (const id of ids) {
+      const i = this.#live.indexOf(id)
+      if (i === undefined) continue
+      const next = replace(current[i] as ReviewRow)
+      if (next && next !== current[i]) changes.set(i, next)
+    }
+    const patch = after()
+    if (!changes.size) {
+      if (Object.keys(patch).length) this.store.set(patch)
+      return
+    }
+    const { rows, stats } = this.#live.update(changes)
+    this.store.set({ ...patch, rows, stats })
+  }
+
+  #indexSources(): void {
+    this.#sourceById = { for: this.#sourceRows, map: new Map(this.#sourceRows.map((r) => [r.id, r])) }
+  }
+
+  #source(id: string): SourceRow | undefined {
+    if (this.#sourceById?.for !== this.#sourceRows) this.#indexSources()
+    return this.#sourceById?.map.get(id)
+  }
 
   /** Edit a cell. `value` is treated like source input: it's coerced and validated. */
   editCell(rowId: string, field: string, value: unknown): void {
@@ -562,7 +600,7 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
 
   editCells(edits: { rowId: string; field: string; value: unknown }[]): void {
     if (!this.#processor || !edits.length) return
-    const byId = new Map(this.#sourceRows.map((r) => [r.id, r]))
+    const processor = this.#processor
     const touched = new Set<string>()
     const fields = new Set<string>()
     for (const { rowId, field, value } of edits) {
@@ -572,23 +610,27 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
       fields.add(field)
     }
     const pendingStandard = new Map<string, Promise<Issue[]>>()
-    let rows = this.getState().rows.map((row) => {
-      if (!touched.has(row.id)) return row
-      const source = byId.get(row.id)
-      if (!source || !this.#processor) return row
-      const next = this.#processor.process(source, this.#edits.get(row.id))
-      const std = this.#processor.validateStandard(next)
-      if (std instanceof Promise) pendingStandard.set(next.id, std)
-      else next.issues.push(...dedupeStandard(next, std))
-      // Keep the last known server-side issues until they've been re-checked.
-      next.issues.push(...(this.#asyncIssues.get(row.id) ?? []))
-      return next
-    })
-    // A rebuilt row has lost its duplicate issues, whichever field was edited.
-    rows = applyUniqueness(rows, this.schema)
-    const async = pendingStandard.size > 0 || !!this.schema.validateBatch
-    if (async) this.#pending++
-    this.store.set({ rows, stats: computeStats(rows), ...(async ? { busy: 'validating' as const } : {}) })
+    let async = false
+    // Rebuilt rows lose their duplicate issues; #replaceRows recomputes them for every affected row.
+    this.#replaceRows(
+      (row) => {
+        const source = this.#source(row.id)
+        if (!source) return row
+        const next = processor.process(source, this.#edits.get(row.id))
+        const std = processor.validateStandard(next)
+        if (std instanceof Promise) pendingStandard.set(next.id, std)
+        else next.issues.push(...dedupeStandard(next, std))
+        // Keep the last known server-side issues until they've been re-checked.
+        next.issues.push(...(this.#asyncIssues.get(row.id) ?? []))
+        return next
+      },
+      touched,
+      () => {
+        async = pendingStandard.size > 0 || !!this.schema.validateBatch
+        if (async) this.#pending++
+        return async ? { busy: 'validating' as const } : {}
+      },
+    )
     if (async) void this.#revalidateAsync(touched, pendingStandard)
   }
 
@@ -600,11 +642,10 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
         const results = new Map<string, Issue[]>()
         for (const [id, promise] of pendingStandard) results.set(id, await promise)
         if (signal.aborted) return
-        const next = this.getState().rows.map((row) => {
+        this.#replaceRows((row) => {
           const extra = results.get(row.id)
           return extra?.length ? { ...row, issues: [...row.issues, ...dedupeStandard(row, extra)] } : row
-        })
-        this.store.set({ rows: next, stats: computeStats(next) })
+        }, results.keys())
       }
       await this.#runBatchValidation(
         this.getState().rows.filter((r) => ids.has(r.id)),
@@ -641,11 +682,12 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
       this.#edits.delete(id)
       this.#asyncIssues.delete(id)
     }
-    const rows = applyUniqueness(
+    this.#live = new LiveRows(
       this.getState().rows.filter((r) => !remove.has(r.id)),
       this.schema,
     )
-    this.store.set({ rows, stats: computeStats(rows), rowCount: rows.length })
+    this.#indexSources()
+    this.store.set({ rows: this.#live.rows, stats: this.#live.stats, rowCount: this.#live.rows.length })
   }
 
   /** Remove every row that has at least one error. */

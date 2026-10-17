@@ -9,6 +9,26 @@ npm i @openimport/ai
 
 `@openimport/ai` builds a prompt from your schema and the file's columns, sends it to a function you write, and checks the answer. It has no dependencies and no hosted service.
 
+---
+
+## Where it fits
+
+Mapping a file happens in three steps:
+
+1. **Recipe.** A mapping saved earlier is applied if it fits the file's headers.
+2. **Matchers.** Each matcher suggests `{ field, column, confidence }`. The built-in fuzzy matcher compares header names, synonyms and sample values. The AI matcher is one more matcher.
+3. **Assignment.** The best suggestions win, one column per field. Suggestions above `autoMapThreshold` (0.7) are applied; the user reviews the rest.
+
+The fuzzy matcher handles headers like `E-Mail`, `Vorname` or `PLZ`. A model helps where the header doesn't say what the column is: `Kontakt` full of email addresses, `KDNR`, `Spalte 7`, or a `Name` column that has to be split into first and last name.
+
+The AI matcher sends the field descriptions, the column headers and up to five sample values per column. Columns, fields and transforms the model invents are dropped. If the call fails, the import continues with the fuzzy matches.
+
+For a model that answers structured questions instead of text, write a matcher directly. [`examples/jev-matcher`](https://github.com/openimport/openimport/tree/main/examples/jev-matcher) does this with TypeSafe's Jev and prints the request it sends, which is a quick way to see what an AI matcher gets to work with.
+
+---
+
+## Setup
+
 ```ts
 import { aiMatching } from '@openimport/ai'
 

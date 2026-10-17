@@ -140,9 +140,9 @@ function Hero() {
             Messy spreadsheets in. Typed records out.
           </h1>
           <p className="max-w-[34rem] text-[17px] leading-relaxed text-zinc-400">
-            OpenImport is a <span className="lp-sketch">headless TypeScript engine for user-facing data imports</span>. It reads CSV, Excel, JSON and XML, finds the header,
-            matches columns to your schema, fixes formats, validates every row and hands your code typed records. In the browser, a worker
-            or on your server.
+            OpenImport is a <span className="lp-sketch">headless TypeScript engine for user-facing data imports</span>. It reads CSV, Excel,
+            JSON and XML, finds the header, matches columns to your schema, fixes formats, validates every row and hands your code typed
+            records. In the browser, a worker or on your server.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" asChild>
@@ -292,15 +292,15 @@ const KIND = {
 } as const
 
 const TRACE: { span: string; kind: keyof typeof KIND; start: number; ms: number | null; result: string; depth?: boolean }[] = [
-  { span: 'file.inspect', kind: 'parse', start: 0, ms: 4, result: "csv plugin · delimiter ';' · utf-8" },
-  { span: 'rows.read', kind: 'parse', start: 4, ms: 99, result: '50,004 rows streamed · header found in row 4', depth: true },
-  { span: 'columns.match', kind: 'map', start: 103, ms: 11, result: 'fuzzy matcher, no recipe yet · 8/8 fields', depth: true },
-  { span: 'mapping.enrich', kind: 'map', start: 114, ms: 2, result: 'DD.MM.YYYY · decimal "," · enum values', depth: true },
-  { span: 'rows.validate', kind: 'validate', start: 116, ms: 234, result: 'coerce → rules → unique · 2,472 flagged', depth: true },
-  { span: 'review', kind: 'validate', start: 350, ms: null, result: 'user edits re-validate only their row', depth: true },
-  { span: 'submit', kind: 'output', start: 350, ms: 37, result: '47,528 records → onSubmit × 48 batches', depth: true },
+  { span: 'file.inspect', kind: 'parse', start: 0, ms: 6, result: "csv plugin · delimiter ';' · utf-8" },
+  { span: 'rows.read', kind: 'parse', start: 6, ms: 119, result: '50,004 rows streamed · header found in row 4', depth: true },
+  { span: 'columns.match', kind: 'map', start: 125, ms: 17, result: 'fuzzy matcher, no recipe yet · 8/8 fields', depth: true },
+  { span: 'mapping.enrich', kind: 'map', start: 142, ms: 3, result: 'DD.MM.YYYY · decimal "," · enum values', depth: true },
+  { span: 'rows.validate', kind: 'validate', start: 145, ms: 387, result: 'coerce → rules → unique · 2,472 flagged', depth: true },
+  { span: 'review', kind: 'validate', start: 532, ms: null, result: 'an edit re-checks its row and its duplicates · 0.4 ms', depth: true },
+  { span: 'submit', kind: 'output', start: 532, ms: 60, result: '47,538 records → onSubmit × 48 batches', depth: true },
 ]
-const TOTAL = 400
+const TOTAL = 600
 
 function TraceTable() {
   const ref = useInView<HTMLDivElement>()
@@ -311,7 +311,7 @@ function TraceTable() {
           import/5f3a91 <span className="text-zinc-500">crm-export.csv · 50,000 rows · 8 fields</span>
         </span>
         <span className="text-zinc-500">
-          7 stages · <span className="text-zinc-300">386 ms</span> of engine time
+          7 stages · <span className="text-zinc-300">592 ms</span> of engine time
         </span>
       </div>
       <div className="overflow-x-auto">

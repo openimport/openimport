@@ -199,7 +199,7 @@ export const fixedWidth = definePlugin({
 })
 ```
 
-Read [docs/plugins.md](./docs/plugins.md) for the full contract, including collision rules and capabilities. `checkPlugin()` from `@openimport/core/testing` verifies a plugin against it; [`examples/fixed-width-plugin`](./examples/fixed-width-plugin) is a complete third-party plugin.
+Read [docs/plugins.md](./docs/plugins.md) for the full contract, including collision rules and capabilities. `checkPlugin()` from `@openimport/core/testing` verifies a plugin against it; [`examples/fixed-width-plugin`](./examples/fixed-width-plugin) is a complete third-party plugin. [`examples/jev-matcher`](./examples/jev-matcher) adds an AI column matcher on TypeSafe's Jev.
 
 ## Playground
 
@@ -215,15 +215,16 @@ The playground is built with shadcn/ui on Tailwind v4 (sharp, `--radius: 0`); it
 `pnpm bench` imports a generated 50,000-row German CRM export (title rows, semicolons, `DD.MM.YYYY`, decimal commas, typos) and prints the time per stage. On Node 22 and an Apple M4 Pro:
 
 ```
-file.inspect         3.6 ms   csv · delimiter=; encoding=utf-8
-rows.read           99.0 ms   50,004 rows (header detection included)
-columns.match       11.0 ms   8 suggestions
-mapping.enrich       1.5 ms   8 of 8 fields mapped
-rows.validate      234.3 ms   2,472 rows with errors
-submit              36.5 ms   47,528 records in 48 batches
+file.inspect         5.5 ms   csv · delimiter=; encoding=utf-8 estimated=true
+rows.read          118.8 ms   50,004 rows (header detection included)
+columns.match       16.8 ms   8 suggestions
+mapping.enrich       2.6 ms   8 of 8 fields mapped
+rows.validate      387.2 ms   2,472 rows with errors
+review.edit          4.4 ms   10 cells fixed, 0.44 ms per edit
+submit              59.9 ms   47,538 records in 48 batches
 ```
 
-Pass a row count to try other sizes: `pnpm bench 200000`. The review grid renders only the visible rows, and validation yields to the main thread between chunks.
+Pass a row count to try other sizes: `pnpm bench 200000`. The review grid renders only the visible rows, validation yields to the main thread between chunks, and an edit only re-checks the rows it affects, so fixing a cell takes about a millisecond at 50,000 rows and at 1,000,000.
 
 ## Development
 

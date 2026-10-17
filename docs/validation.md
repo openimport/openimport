@@ -3,7 +3,7 @@ title: Validation
 description: What gets checked, in which order, and how to add your own rules.
 ---
 
-Every row is checked when the user confirms the mapping. Edits re-check only the edited row.
+Every row is checked when the user confirms the mapping. An edit re-checks the edited row and the rows that share one of its unique values, so it stays fast in files with millions of rows.
 
 ---
 

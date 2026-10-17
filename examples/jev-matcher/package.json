@@ -1,0 +1,22 @@
+{
+  "name": "@openimport/example-jev-matcher",
+  "private": true,
+  "type": "module",
+  "description": "An AI column matcher built on TypeSafe's Jev: each unmapped field becomes a closed choice between the file's columns.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "demo": "tsx --conditions=@openimport/source src/demo.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openimport/core": "workspace:^",
+    "@openimport/csv": "workspace:^",
+    "@typesafe-ai/sdk": "^0.7.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "@types/node": "^26.6.5"
+  }
+}
