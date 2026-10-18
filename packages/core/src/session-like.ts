@@ -1,4 +1,5 @@
 import type { DistinctValue } from './automap'
+import type { CustomField, CustomFieldInput } from './custom-fields'
 import type { Importer, SubmitHandler } from './importer'
 import type { FieldPreview } from './session'
 import type { FieldMapping, MaybePromise, Recipe, ReviewRow, RowQuery, SessionState, SourceFile, SubmitResult } from './types'
@@ -25,6 +26,11 @@ export interface SessionLike<T = Record<string, unknown>> {
   setMapping(target: string, mapping: FieldMapping | null): MaybePromise<void>
   assign(target: string, source: string | null): MaybePromise<void>
   clearMapping(): MaybePromise<void>
+  /** Add a field the schema doesn't have (needs the `customFields` option). */
+  addCustomField(input: CustomFieldInput): MaybePromise<CustomField>
+  removeCustomField(key: string): MaybePromise<void>
+  /** Name and type to start the "Add as custom field" form with, or `null` when custom fields are off. */
+  suggestCustomField(sourceKey: string): MaybePromise<CustomFieldInput | null>
   autoMap(): Promise<void>
   previewField(target: string, mapping?: FieldMapping, limit?: number): MaybePromise<FieldPreview[]>
   distinctValues(target: string, mapping?: FieldMapping, limit?: number): MaybePromise<(DistinctValue & { matched?: string })[]>

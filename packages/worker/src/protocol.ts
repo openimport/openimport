@@ -1,4 +1,4 @@
-import type { ImportError, ImportEvent, SessionState, SubmitFeedback } from '@openimport/core'
+import type { CustomField, ImportError, ImportEvent, SessionState, SubmitFeedback } from '@openimport/core'
 
 /** Anything that can exchange messages: a `Worker`, the worker's `self`, a `MessagePort`. */
 export interface Endpoint {
@@ -9,7 +9,16 @@ export interface Endpoint {
 }
 
 /** Read-only queries: their results don't change state, so no state is sent back with them. */
-export const QUERIES = new Set<string>(['previewField', 'distinctValues', 'exportRecipe', 'countRows', 'getRows', 'rowIds', 'findIssue'])
+export const QUERIES = new Set<string>([
+  'previewField',
+  'distinctValues',
+  'exportRecipe',
+  'countRows',
+  'getRows',
+  'rowIds',
+  'findIssue',
+  'suggestCustomField',
+])
 
 /** Session methods the main thread may call. Everything else is rejected. */
 export const METHODS = [
@@ -20,6 +29,9 @@ export const METHODS = [
   'setMapping',
   'assign',
   'clearMapping',
+  'addCustomField',
+  'removeCustomField',
+  'suggestCustomField',
   'autoMap',
   'previewField',
   'distinctValues',
@@ -56,7 +68,7 @@ export type FromWorker =
       t: 'batch'
       id: number
       batch: number
-      payload: { records: unknown[]; rows: unknown[]; index: number; total: number; batchId: string }
+      payload: { records: unknown[]; rows: unknown[]; index: number; total: number; batchId: string; customFields: CustomField[] }
     }
   | { t: 'event'; event: ImportEvent }
 

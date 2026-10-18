@@ -37,7 +37,7 @@ export class AdaptiveSession<T = Record<string, unknown>> implements SessionLike
   }
 
   get schema() {
-    return this.importer.schema
+    return this.#current.schema
   }
 
   /** Where the current import runs. */
@@ -83,6 +83,9 @@ export class AdaptiveSession<T = Record<string, unknown>> implements SessionLike
   setMapping: SessionLike<T>['setMapping'] = (...a) => this.#current.setMapping(...a)
   assign: SessionLike<T>['assign'] = (...a) => this.#current.assign(...a)
   clearMapping: SessionLike<T>['clearMapping'] = () => this.#current.clearMapping()
+  addCustomField: SessionLike<T>['addCustomField'] = (input) => this.#current.addCustomField(input)
+  removeCustomField: SessionLike<T>['removeCustomField'] = (key) => this.#current.removeCustomField(key)
+  suggestCustomField: SessionLike<T>['suggestCustomField'] = (key) => this.#current.suggestCustomField(key)
   autoMap: SessionLike<T>['autoMap'] = () => this.#current.autoMap()
   previewField: SessionLike<T>['previewField'] = (...a) => this.#current.previewField(...a)
   distinctValues: SessionLike<T>['distinctValues'] = (...a) => this.#current.distinctValues(...a)

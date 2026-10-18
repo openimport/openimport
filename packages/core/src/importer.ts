@@ -1,3 +1,10 @@
+import {
+  type CustomField,
+  type CustomFieldsOptions,
+  type ImportRecord,
+  type ResolvedCustomFields,
+  resolveCustomFields,
+} from './custom-fields'
 import { importError } from './errors'
 import { fuzzyMatcher } from './matching'
 import { type RunChunk, type RunOptions, runImport } from './pipeline'
@@ -9,8 +16,8 @@ import { builtinTransforms, createTransformRegistry, type TransformRegistry } fr
 import type { FormatAdapter, ImportEvent, ImportPlugin, ImportSchema, Matcher, RecipeStore, ReviewRow, RowIssue, SourceFile } from './types'
 
 export interface SubmitBatch<T> {
-  /** Final, nested records of this batch. */
-  records: T[]
+  /** Final, nested records of this batch. Values of custom fields are in `record.$custom`. */
+  records: ImportRecord<T>[]
   /** Review rows backing `records` (same order) — use `rows[i].id` to report rejections. */
   rows: ReviewRow[]
   /** 0-based batch index and total number of batches in this attempt. */
@@ -21,6 +28,8 @@ export interface SubmitBatch<T> {
    * batch is sent again (e.g. after a timeout), it has the same id.
    */
   batchId: string
+  /** Custom fields the user added (their values are in `record.$custom`). Empty without custom fields. */
+  customFields: CustomField[]
   signal: AbortSignal
 }
 
@@ -50,6 +59,12 @@ export interface ImporterConfig<T> {
   /** Reject datasets with more rows than this. */
   maxRows?: number
   /**
+   * Let users add fields the schema doesn't have, for columns nothing maps to
+   * ("Add as custom field"). They're typed and validated; their values arrive in
+   * `record.$custom`. Off by default.
+   */
+  customFields?: boolean | CustomFieldsOptions
+  /**
    * Persist records here. Called with batches of valid records; throw to stop
    * (rows sent so far stay imported, a retry sends the rest), or return
    * \`{ rejected }\` to send individual rows back to review.
@@ -67,6 +82,8 @@ export interface Importer<T = Record<string, unknown>> {
   readonly recipes: RecipeStore | null
   /** `accept` attribute for file inputs, e.g. `.csv,.tsv,text/csv`. */
   readonly accept: string
+  /** Custom field settings, or `null` when users can't add fields. */
+  readonly customFields: ResolvedCustomFields | null
   /** Start an interactive import session (what the UI drives). */
   createSession: () => ImportSession<T>
   /** Find the format adapter for a file. */
@@ -132,6 +149,7 @@ export function createImporter<T>(config: ImporterConfig<T>): Importer<T> {
     transforms,
     recipes,
     accept,
+    customFields: resolveCustomFields(config.customFields, schema as ImportSchema<unknown>),
     detectFormat,
     emit,
     createSession: () => new ImportSession<T>(importer),

@@ -40,5 +40,7 @@ export function makeImporter(options: PlaygroundOptions) {
     // IndexedDB works on the page and in the worker, so both see the same saved mappings.
     recipes: options.rememberRecipes ? indexedDbRecipeStore('openimport-playground') : false,
     maxFileSize: 100 * 1024 * 1024,
+    // Columns the schema doesn't cover can be added as typed fields; values arrive in record.$custom.
+    customFields: true,
   })
 }

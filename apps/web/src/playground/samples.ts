@@ -64,7 +64,10 @@ const pick = <T>(r: () => number, list: T[]) => list[Math.floor(r() * list.lengt
 export function crmExportCsv(rows = 2500): File {
   const r = rng(42)
   const lines = ['CRM Export – Kontakte;;;;;;;;;;;', `Erstellt am 17.10.2026 von admin;;;;;;;;;;;`, ';;;;;;;;;;;']
-  lines.push('Vorname;Nachname;E-Mail-Adresse;Telefon;Firma;Status;Kunde seit;Umsatz (EUR);Newsletter;Schlagworte;Straße;PLZ;Ort;Land')
+  // The last two columns aren't in the schema: add them as custom fields in the mapping step.
+  lines.push(
+    'Vorname;Nachname;E-Mail-Adresse;Telefon;Firma;Status;Kunde seit;Umsatz (EUR);Newsletter;Schlagworte;Straße;PLZ;Ort;Land;Kundensegment;Treuepunkte',
+  )
   for (let i = 0; i < rows; i++) {
     const first = pick(r, FIRST)
     const last = pick(r, LAST)
@@ -99,6 +102,9 @@ export function crmExportCsv(rows = 2500): File {
         zip,
         city,
         country,
+        // Derived from the row number, so the random values above stay the same.
+        ['A', 'B', 'C'][i % 3],
+        (i * 37) % 1000,
       ].join(';'),
     )
   }

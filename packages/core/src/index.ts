@@ -1,6 +1,8 @@
 export type { DistinctValue } from './automap'
 export { distinctValues } from './automap'
 export { coerceValue, detectColumnOptions, matchOption, parseDate, parseNumber } from './coerce'
+export type { CustomField, CustomFieldInput, CustomFieldsOptions, ImportRecord, ResolvedCustomFields } from './custom-fields'
+export { CUSTOM_KEY, customFieldKey, suggestCustomField, withCustomFields } from './custom-fields'
 export { ImportException, importError } from './errors'
 export type { Importer, ImporterConfig, SubmitBatch, SubmitFeedback, SubmitHandler } from './importer'
 export { createImporter } from './importer'

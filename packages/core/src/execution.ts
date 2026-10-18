@@ -4,6 +4,7 @@
  * here, so both entry points enforce exactly the same rules.
  */
 import { enrichMapping } from './automap'
+import { CUSTOM_KEY, type ImportRecord, splitCustomValues } from './custom-fields'
 import { importError } from './errors'
 import type { Importer, ImporterConfig } from './importer'
 import type { FieldMapping, ImportSchema, Issue, Mapping, MatchSuggestion, SourceField, SourceFile, SourceRow } from './types'
@@ -150,13 +151,20 @@ export const duplicateIssue = (field: string, firstRow: number): Issue => ({
 // Output
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Nested output record; with a Standard Schema, its parsed value (defaults, transforms). */
-export async function toOutputRecord<T>(schema: ImportSchema<unknown>, values: Record<string, unknown>): Promise<T> {
-  const nested = nest(values)
+/**
+ * Nested output record; with a Standard Schema, its parsed value (defaults, transforms).
+ * Custom field values go to `$custom`, so the schema (and a strict Standard Schema) never sees them.
+ */
+export async function toOutputRecord<T>(schema: ImportSchema<unknown>, values: Record<string, unknown>): Promise<ImportRecord<T>> {
+  const split = splitCustomValues(schema, values)
+  const nested = nest(split.values)
   const standard = schema.standard
-  if (!standard) return nested as T
-  const result = await standard['~standard'].validate(nested)
-  return (result.issues ? nested : result.value) as T
+  let record = nested as T
+  if (standard) {
+    const result = await standard['~standard'].validate(nested)
+    record = (result.issues ? nested : result.value) as T
+  }
+  return split.custom ? ({ ...record, [CUSTOM_KEY]: split.custom } as ImportRecord<T>) : (record as ImportRecord<T>)
 }
 
 /** FNV-1a: a short, stable id for a batch of row ids (idempotency keys). */

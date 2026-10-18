@@ -1,4 +1,4 @@
-import type { FieldDefinition, FieldMapping, MatchSuggestion, SessionState, SourceField } from '@openimport/core'
+import type { FieldDefinition, FieldMapping, MatchSuggestion, ResolvedCustomFields, SessionState, SourceField } from '@openimport/core'
 import { useMemo } from 'react'
 import { useSession } from '../context'
 import { shallowEqual, useImportState } from './use-import-state'
@@ -23,6 +23,8 @@ export interface UseMappingReturn {
   recipe: SessionState['recipe']
   canConfirm: boolean
   isBusy: boolean
+  /** Custom field settings (types, groups), or `null` when users can't add fields. */
+  customFields: ResolvedCustomFields | null
 }
 
 const select = (s: SessionState) => ({
@@ -31,16 +33,20 @@ const select = (s: SessionState) => ({
   suggestions: s.suggestions,
   recipe: s.recipe,
   busy: s.busy,
+  // session.schema includes these, so the field list follows them
+  customFields: s.customFields,
 })
 
 /** Everything the mapping step needs, derived from session state. Actions live on `useSession()`. */
 export function useMapping(): UseMappingReturn {
   const session = useSession()
   const { mapping, sourceFields, suggestions, recipe, busy } = useImportState(select, shallowEqual)
+  // Includes custom fields; the same object until they change.
+  const schema = session.schema
   return useMemo(() => {
     const byKey = new Map(sourceFields.map((f) => [f.key, f]))
     const used = new Set(Object.values(mapping).flatMap((m) => m.sources))
-    const fields: MappingField[] = session.schema.fields.map((field) => {
+    const fields: MappingField[] = schema.fields.map((field) => {
       const m = mapping[field.key]
       const suggestion = suggestions.find((s) => s.target === field.key)
       const status = m ? 'mapped' : field.required && field.default === undefined ? 'missing' : 'unmapped'
@@ -65,6 +71,7 @@ export function useMapping(): UseMappingReturn {
       recipe,
       canConfirm: requiredMissing.length === 0 && !busy,
       isBusy: !!busy,
+      customFields: session.importer.customFields,
     }
-  }, [session, mapping, sourceFields, suggestions, recipe, busy])
+  }, [session, schema, mapping, sourceFields, suggestions, recipe, busy])
 }

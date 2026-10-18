@@ -1,4 +1,5 @@
 import { collectSuggestions } from './automap'
+import { type CustomField, type ImportRecord, restoreCustomFields, withCustomFields } from './custom-fields'
 import { importError } from './errors'
 import {
   applySuggestions,
@@ -25,6 +26,8 @@ export interface RunOptions {
   recipe?: Recipe
   /** Or an explicit mapping keyed by target field, with sources given as *labels*. */
   mapping?: Mapping
+  /** Custom fields an explicit `mapping` uses (a recipe brings its own). Needs the `customFields` option. */
+  customFields?: CustomField[]
   /** Fall back to auto-matching when no mapping/recipe is given. Default `true`. */
   autoMap?: boolean
   /** Rows per yielded chunk. Default `1000`. */
@@ -33,14 +36,16 @@ export interface RunOptions {
 }
 
 export interface RunChunk<T> {
-  /** Records without errors. */
-  records: T[]
+  /** Records without errors. Values of custom fields are in `record.$custom`. */
+  records: ImportRecord<T>[]
   /** Rows with at least one error (with their issues). */
   invalid: ReviewRow[]
   /** All issues in this chunk, flattened, with the 1-based source line/record number. */
   issues: (RowIssue & { sourceIndex: number })[]
   /** The mapping in effect (keys are source *keys*), provided on the first chunk. */
   mapping?: Mapping
+  /** Custom fields in effect, provided on the first chunk. */
+  customFields?: CustomField[]
   sourceFields?: SourceField[]
 }
 
@@ -106,28 +111,42 @@ export async function* runImport<T>(
     toValues = (row) => flattenRecord(row as Record<string, RawValue>)
   }
 
-  const targets = new Set(importer.schema.fields.map((f) => f.key))
+  // Custom fields come with the recipe (or the explicit mapping), filtered to what the importer allows.
+  let customFields: CustomField[] = []
+  const resolve = (r: Recipe) => {
+    customFields = restoreCustomFields(r.customFields, importer.customFields, importer.schema)
+    return applyRecipe(r, sourceFields, new Set(withCustomFields(importer.schema, customFields).fields.map((f) => f.key)))
+  }
   let mapping: Mapping = {}
-  if (recipe) mapping = applyRecipe(recipe, sourceFields, targets)
+  if (recipe) mapping = resolve(recipe)
   else if (options.mapping) {
     const now = new Date().toISOString()
     const inline = parseRecipe(
-      { version: 1, id: 'inline', createdAt: now, updatedAt: now, sourceLabels: [], mapping: options.mapping },
+      {
+        version: 1,
+        id: 'inline',
+        createdAt: now,
+        updatedAt: now,
+        sourceLabels: [],
+        mapping: options.mapping,
+        ...(options.customFields ? { customFields: options.customFields } : {}),
+      },
       importer.transforms,
     )
-    mapping = applyRecipe(inline, sourceFields, targets)
+    mapping = resolve(inline)
   } else if (importer.recipes) {
     const found = findRecipe(await importer.recipes.list(importer.schema.id), sourceFields)
-    if (found) mapping = applyRecipe(found, sourceFields, targets)
+    if (found) mapping = resolve(found)
   }
+  const schema = withCustomFields(importer.schema, customFields)
   const sampleRows: SourceRow[] = buffered.slice(0, SAMPLE_ROWS).map((r, i) => ({ id: `s${i}`, sourceIndex: i, values: toValues(r) }))
   const suggestions =
     !Object.keys(mapping).length && options.autoMap !== false ? await collectSuggestions(importer, sourceFields, mapping, signal) : []
   mapping = applySuggestions(importer, mapping, suggestions, sampleRows, sourceFields)
 
   const labels = Object.fromEntries(sourceFields.map((f) => [f.key, f.label]))
-  const processor = createRowProcessor(importer.schema, mapping, importer.transforms, labels)
-  const unique = new UniqueIndex(importer.schema.fields.filter((f) => f.unique).map((f) => f.key))
+  const processor = createRowProcessor(schema, mapping, importer.transforms, labels)
+  const unique = new UniqueIndex(schema.fields.filter((f) => f.unique).map((f) => f.key))
   let line = dataset.layout === 'grid' ? headerRow + 1 : 0
   let count = 0
   let first = true
@@ -145,24 +164,25 @@ export async function* runImport<T>(
     }
     // Server-side checks see the same rows the session would send them.
     const found = await runBatchValidators(
-      importer.schema,
+      schema,
       rows.filter((r) => !hasErrors(r)).map((r) => ({ id: r.id, values: r.values })),
       signal,
       batchSize,
     )
-    const records: T[] = []
+    const records: ImportRecord<T>[] = []
     const invalid: ReviewRow[] = []
     const issues: RunChunk<T>['issues'] = []
     for (const row of rows) {
       row.issues.push(...(found.get(row.id) ?? []))
       for (const issue of row.issues) issues.push({ ...issue, rowId: row.id, sourceIndex: row.sourceIndex })
       if (hasErrors(row)) invalid.push(row)
-      else records.push(await toOutputRecord<T>(importer.schema, row.values))
+      else records.push(await toOutputRecord<T>(schema, row.values))
     }
     const chunk: RunChunk<T> = { records, invalid, issues }
     if (first) {
       chunk.mapping = mapping
       chunk.sourceFields = sourceFields
+      chunk.customFields = customFields
       first = false
     }
     return chunk

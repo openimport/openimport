@@ -28,10 +28,11 @@ onSubmit: async ({ records, rows, index, total, batchId, signal }) => { … }
 
 | Field | |
 |---|---|
-| `records` | typed, nested records |
+| `records` | typed, nested records; values of [custom fields](./custom-fields.md) in `record.$custom` |
 | `rows` | the review rows behind them; `rows[i].id` identifies `records[i]` |
 | `index`, `total` | position of this batch in the current attempt |
 | `batchId` | stable id for this set of rows; use it as an idempotency key |
+| `customFields` | the custom fields the user added (empty without them) |
 | `signal` | aborted when the user cancels |
 
 Batch size is `batchSize` (default 1,000).

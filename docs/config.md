@@ -30,5 +30,6 @@ createImporter({
 | `batchSize` | `1000` | rows per `onSubmit` call and per `run()` chunk |
 | `maxFileSize` | – | bytes; larger files get a friendly error |
 | `maxRows` | – | data rows (header and blank lines excluded); more is an error in the session and in `run()` |
+| `customFields` | `false` | let users add unmatched columns as typed fields; see [Custom fields](./custom-fields.md) |
 | `onSubmit` | – | persist valid records, in batches; see [Output](./output.md) |
 | `onEvent` | – | lifecycle events |

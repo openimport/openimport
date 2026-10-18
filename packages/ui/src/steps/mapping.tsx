@@ -1,24 +1,12 @@
-import type { FieldPreview } from '@openimport/core'
+import type { CustomFieldInput, EnumOption, FieldPreview, FieldType, ResolvedCustomFields, SourceField } from '@openimport/core'
 import { type MappingField, useImportState, useMapping, useSession, useSessionQuery } from '@openimport/react'
 import { Fragment, useMemo, useState } from 'react'
 import { ColumnPicker } from '../components/column-picker'
-import { Badge, Button, IconButton, Progress, Tooltip } from '../components/primitives'
+import { Badge, Button, IconButton, Input, Popover, Progress, Select, Tooltip } from '../components/primitives'
 import { useUi } from '../context'
-import { AlertCircle, ArrowRight, Bookmark, Check, Combine, Info, RotateCcw, Sparkles, Wand2, X } from '../icons'
+import { AlertCircle, ArrowRight, Bookmark, Check, Combine, Info, Plus, RotateCcw, Sparkles, Trash2, Wand2, X } from '../icons'
 import { cx, display } from '../utils'
 import { FieldEditor } from './field-editor'
-
-const TYPE_LABEL: Record<string, string> = {
-  string: 'Text',
-  number: 'Number',
-  integer: 'Integer',
-  boolean: 'Yes / No',
-  date: 'Date',
-  datetime: 'Date & time',
-  email: 'Email',
-  url: 'URL',
-  enum: 'Option',
-}
 
 export function MappingStep() {
   const session = useSession()
@@ -26,7 +14,7 @@ export function MappingStep() {
   const mapping = useMapping()
   const rawMapping = useImportState((s) => s.mapping)
   const [editing, setEditing] = useState<string | null>(null)
-  const fieldLabels = useMemo(() => Object.fromEntries(session.schema.fields.map((f) => [f.key, f.label])), [session])
+  const fieldLabels = useMemo(() => Object.fromEntries(mapping.fields.map((f) => [f.field.key, f.field.label])), [mapping.fields])
   const total = mapping.fields.length
 
   // Group fields, required first within the natural order.
@@ -125,23 +113,30 @@ export function MappingStep() {
 
       <div className="oi-unused">
         <span className="oi-unused__title">{m.mapping.unused}</span>
+        {mapping.customFields && mapping.unusedSources.length > 0 && (
+          <span className="oi-muted oi-small">{m.mapping.unusedCustomHint}</span>
+        )}
         {mapping.unusedSources.length ? (
           <div className="oi-unused__list">
-            {mapping.unusedSources.map((s) => (
-              <Tooltip
-                key={s.key}
-                content={
-                  s.samples.length
-                    ? s.samples
-                        .slice(0, 3)
-                        .map((x) => display(x, 30))
-                        .join(' · ')
-                    : m.mapping.empty
-                }
-              >
-                <span className="oi-chip oi-chip--muted">{s.label}</span>
-              </Tooltip>
-            ))}
+            {mapping.unusedSources.map((s) =>
+              mapping.customFields ? (
+                <AddCustomField key={s.key} source={s} options={mapping.customFields} />
+              ) : (
+                <Tooltip
+                  key={s.key}
+                  content={
+                    s.samples.length
+                      ? s.samples
+                          .slice(0, 3)
+                          .map((x) => display(x, 30))
+                          .join(' · ')
+                      : m.mapping.empty
+                  }
+                >
+                  <span className="oi-chip oi-chip--muted">{s.label}</span>
+                </Tooltip>
+              ),
+            )}
           </div>
         ) : (
           <span className="oi-muted">{m.mapping.unusedNone}</span>
@@ -198,7 +193,7 @@ function FieldRow({
             )}
           </span>
           <span className="oi-map__type">
-            {TYPE_LABEL[field.type] ?? field.type}
+            {m.mapping.types[field.type] ?? field.type}
             {field.multiple ? ' · list' : ''}
             {field.unique ? ' · unique' : ''}
           </span>
@@ -235,8 +230,14 @@ function FieldRow({
           >
             <Wand2 aria-hidden />
           </IconButton>
+          {field.custom && (
+            <IconButton label={m.mapping.customRemove} onClick={() => session.removeCustomField(field.key)} className="oi-map__configure">
+              <Trash2 aria-hidden />
+            </IconButton>
+          )}
         </div>
         <div className="oi-map__badges">
+          {field.custom && <Badge tone="accent">{m.mapping.customBadge}</Badge>}
           {mapping?.origin === 'recipe' && (
             <Badge tone="accent">
               <Bookmark aria-hidden /> {m.mapping.fromRecipe}
@@ -296,5 +297,128 @@ function FieldRow({
         )}
       </div>
     </div>
+  )
+}
+
+/** An unused column as a button: opens a small form to add it as a custom field. */
+function AddCustomField({ source, options }: { source: SourceField; options: ResolvedCustomFields }) {
+  const session = useSession()
+  const { m, t } = useUi()
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<CustomFieldInput | null>(null)
+  const [suggestedOptions, setSuggestedOptions] = useState<EnumOption[] | undefined>()
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) return
+    setError(null)
+    void Promise.resolve(session.suggestCustomField(source.key)).then((s) => {
+      const base = s ?? { label: source.label, type: options.types[0] ?? 'string', source: source.key }
+      setSuggestedOptions(base.options)
+      // No group unless one is required: then the first.
+      setDraft({ ...base, ...(options.requireGroup && options.groups[0] ? { group: options.groups[0] } : {}) })
+    })
+  }
+
+  // A choice needs options, which come from the column's values.
+  const types = options.types.filter((type) => type !== 'enum' || suggestedOptions?.length)
+  const submit = async () => {
+    if (!draft) return
+    setSaving(true)
+    try {
+      const { options: _o, ...rest } = draft
+      await session.addCustomField({ ...rest, ...(draft.type === 'enum' && suggestedOptions ? { options: suggestedOptions } : {}) })
+      setOpen(false)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={onOpenChange}
+      width={300}
+      trigger={
+        <button type="button" className="oi-chip oi-chip--muted oi-chip--action" aria-label={`${m.mapping.addAsField}: ${source.label}`}>
+          <Plus aria-hidden /> {source.label}
+        </button>
+      }
+    >
+      <form
+        className="oi-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void submit()
+        }}
+      >
+        <strong>{t(m.mapping.customTitle, { column: source.label })}</strong>
+        <span className="oi-muted oi-small">
+          {m.mapping.customValues}:{' '}
+          {source.samples.length
+            ? source.samples
+                .slice(0, 3)
+                .map((x) => display(x, 24))
+                .join(' · ')
+            : m.mapping.empty}
+        </span>
+        {draft && (
+          <>
+            <label className="oi-field">
+              <span>{m.mapping.customName}</span>
+              <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} autoFocus />
+            </label>
+            <label className="oi-field">
+              <span>{m.mapping.customType}</span>
+              <Select
+                value={draft.type}
+                onValueChange={(type) => setDraft({ ...draft, type: type as FieldType })}
+                options={types.map((type) => ({ value: type, label: m.mapping.types[type] ?? type }))}
+                aria-label={m.mapping.customType}
+              />
+            </label>
+            {draft.type === 'enum' && suggestedOptions && (
+              <span className="oi-muted oi-small">
+                {t(m.mapping.customOptions, { count: suggestedOptions.length })}:{' '}
+                {suggestedOptions
+                  .slice(0, 5)
+                  .map((o) => o.value)
+                  .join(', ')}
+                {suggestedOptions.length > 5 ? ', …' : ''}
+              </span>
+            )}
+            {options.groups.length > 0 && (
+              <label className="oi-field">
+                <span>{m.mapping.customGroup}</span>
+                <Select
+                  value={draft.group ?? ''}
+                  onValueChange={(group) => {
+                    const { group: _g, ...rest } = draft
+                    setDraft(group ? { ...rest, group } : rest)
+                  }}
+                  options={[
+                    ...(options.requireGroup ? [] : [{ value: '', label: m.mapping.customNoGroup }]),
+                    ...options.groups.map((g) => ({ value: g, label: g })),
+                  ]}
+                  aria-label={m.mapping.customGroup}
+                />
+              </label>
+            )}
+            {error && (
+              <span className="oi-text-danger oi-small" role="alert">
+                {error}
+              </span>
+            )}
+            <Button type="submit" variant="primary" loading={saving} disabled={!draft.label.trim()}>
+              {m.mapping.customAdd}
+            </Button>
+          </>
+        )}
+      </form>
+    </Popover>
   )
 }

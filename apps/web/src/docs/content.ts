@@ -9,7 +9,7 @@ const files = import.meta.glob('../../../../docs/*.md', { query: '?raw', import:
 
 export const NAV: { title: string; pages: string[] }[] = [
   { title: 'Getting started', pages: ['index', 'quick-start'] },
-  { title: 'Guides', pages: ['schema', 'mapping', 'transforms', 'validation', 'output'] },
+  { title: 'Guides', pages: ['schema', 'mapping', 'custom-fields', 'transforms', 'validation', 'output'] },
   { title: 'Building UIs', pages: ['ui', 'react', 'theming', 'worker'] },
   { title: 'Headless', pages: ['session', 'server'] },
   { title: 'Extending', pages: ['plugins', 'formats', 'ai'] },

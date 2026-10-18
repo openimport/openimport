@@ -17,7 +17,14 @@ const schema = defineSchema({
 })
 
 const makeImporter = (onSubmit?: (batch: { records: unknown[] }) => void) =>
-  createImporter({ schema, plugins: [csv()], recipes: memoryRecipeStore(), batchSize: 2, ...(onSubmit ? { onSubmit } : {}) })
+  createImporter({
+    schema,
+    plugins: [csv()],
+    recipes: memoryRecipeStore(),
+    batchSize: 2,
+    customFields: true,
+    ...(onSubmit ? { onSubmit } : {}),
+  })
 
 const CSV = 'Name;E-Mail;Status\nAda;ada@x.io;Active\n;bad;active\nAlan;ADA@x.io;inaktiv\nGrace;grace@x.io;active\n'
 
@@ -41,6 +48,32 @@ function connect(options: { workerSubmit?: (batch: { records: unknown[] }) => vo
 }
 
 describe('worker session', () => {
+  it('adds custom fields in the worker; schema and submitted batches include them', async () => {
+    const session = connect()
+    const csvWithTier =
+      'Name;E-Mail;Status;Tier\nAda;ada@x.io;active;gold\nGrace;grace@x.io;active;silver\nLinus;linus@x.io;inactive;gold\nKen;ken@x.io;active;silver\n'
+    await session.loadFile(sourceFromString(csvWithTier, 'people.csv'))
+    const tier = session.getState().sourceFields.find((f) => f.label === 'Tier')?.key as string
+    const suggestion = await session.suggestCustomField(tier)
+    expect(suggestion?.type).toBe('enum')
+
+    const schemaBefore = session.schema
+    const added = await session.addCustomField(suggestion as NonNullable<typeof suggestion>)
+    expect(added.key).toBe('tier')
+    expect(session.schema.fields.at(-1)).toMatchObject({ key: 'tier', custom: true })
+    expect(session.schema).not.toBe(schemaBefore)
+    expect(session.schema).toBe(session.schema) // stable while nothing changes
+
+    await session.confirmMapping()
+    const batches: { records: unknown[]; customFields: { key: string }[] }[] = []
+    await session.submit(async (batch) => void batches.push(batch))
+    expect(batches.flatMap((b) => b.records)[0]).toMatchObject({ name: 'Ada', $custom: { tier: 'gold' } })
+    expect(batches[0]?.customFields.map((f) => f.key)).toEqual(['tier'])
+
+    await session.reset()
+    expect(session.schema.fields.some((f) => f.custom)).toBe(false)
+  })
+
   it('runs the full flow in the worker; rows stay there and are paged on request', async () => {
     const session = connect()
     await session.loadFile(sourceFromString(CSV, 'people.csv'))

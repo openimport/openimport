@@ -1,4 +1,5 @@
 import { coerceValue } from './coerce'
+import { splitCustomValues } from './custom-fields'
 import { duplicateIssue, uniqueKey } from './execution'
 import type { TransformRegistry } from './transforms'
 import { applyFieldMapping } from './transforms'
@@ -95,7 +96,8 @@ export function createRowProcessor(
         return { ...(key ? { field: key } : {}), code: 'schema', message: issue.message, severity: 'error' as const }
       })
     }
-    const result = schema.standard['~standard'].validate(nest(row.values))
+    // Custom fields aren't part of the Standard Schema; a strict one would reject them.
+    const result = schema.standard['~standard'].validate(nest(splitCustomValues(schema, row.values).values))
     return result instanceof Promise ? result.then(toIssues) : toIssues(result)
   }
 

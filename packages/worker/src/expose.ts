@@ -48,7 +48,14 @@ export function exposeImporter<T>(importer: Importer<T>, endpoint: Endpoint = gl
           t: 'batch',
           id,
           batch: batch.index,
-          payload: { records: batch.records, rows: batch.rows, index: batch.index, total: batch.total, batchId: batch.batchId },
+          payload: {
+            records: batch.records,
+            rows: batch.rows,
+            index: batch.index,
+            total: batch.total,
+            batchId: batch.batchId,
+            customFields: batch.customFields,
+          },
         })
       })
 

@@ -1,9 +1,12 @@
 import {
+  type CustomField,
+  type CustomFieldInput,
   type DistinctValue,
   type FieldMapping,
   type FieldPreview,
   type ImportEvent,
   type Importer,
+  type ImportRecord,
   initialState,
   type MaybePromise,
   type Recipe,
@@ -15,6 +18,7 @@ import {
   type SubmitHandler,
   type SubmitResult,
   toSourceFile,
+  withCustomFields,
 } from '@openimport/core'
 import { type Endpoint, type FromWorker, type Method, reconcile, reviveError, serializeError, type ToWorker } from './protocol'
 
@@ -53,8 +57,9 @@ export class RemoteSession<T = Record<string, unknown>> implements SessionLike<T
     endpoint.start?.()
   }
 
+  /** The importer's schema plus the custom fields added in the worker (same object until they change). */
   get schema() {
-    return this.importer.schema
+    return withCustomFields(this.importer.schema, this.#state.customFields)
   }
 
   getState = (): SessionState => this.#state
@@ -131,13 +136,14 @@ export class RemoteSession<T = Record<string, unknown>> implements SessionLike<T
         error: { name: 'Error', message: 'No submit handler' },
       })
     try {
-      const { records, rows, index, total, batchId } = message.payload
+      const { records, rows, index, total, batchId, customFields } = message.payload
       const value = await entry.handler({
-        records: records as T[],
+        records: records as ImportRecord<T>[],
         rows: rows as ReviewRow[],
         index,
         total,
         batchId,
+        customFields,
         signal: entry.controller.signal,
       })
       reply({ t: 'feedback', id: message.id, batch: message.batch, ok: true, value: value ?? undefined })
@@ -167,6 +173,9 @@ export class RemoteSession<T = Record<string, unknown>> implements SessionLike<T
   setMapping = (target: string, mapping: FieldMapping | null) => this.#call<void>('setMapping', [target, mapping])
   assign = (target: string, source: string | null) => this.#call<void>('assign', [target, source])
   clearMapping = () => this.#call<void>('clearMapping')
+  addCustomField = (input: CustomFieldInput) => this.#call<CustomField>('addCustomField', [input])
+  removeCustomField = (key: string) => this.#call<void>('removeCustomField', [key])
+  suggestCustomField = (sourceKey: string) => this.#call<CustomFieldInput | null>('suggestCustomField', [sourceKey])
   autoMap = () => this.#call<void>('autoMap')
   previewField = (target: string, mapping?: FieldMapping, limit?: number) =>
     this.#call<FieldPreview[]>('previewField', [target, mapping, limit])

@@ -35,7 +35,7 @@ await api.saveRecipe(session.exportRecipe('Weekly CRM export'))
 for await (const chunk of importer.run(file, { recipe: await api.getRecipe() })) { … }
 ```
 
-A recipe replays the mapping, transforms, value maps, date and number formats, the header row and the dataset (sheet or JSON collection). Recipes are validated before use; an invalid one throws `invalid_recipe`.
+A recipe replays the mapping, transforms, value maps, date and number formats, the header row, the dataset (sheet or JSON collection) and the user's [custom fields](./custom-fields.md), if the importer allows them. Recipes are validated before use; an invalid one throws `invalid_recipe`.
 
 Format settings such as a forced CSV delimiter are plugin options, not part of the recipe. Configure them on the plugin.
 
@@ -75,6 +75,7 @@ Streaming input, resumable runs and a swappable uniqueness check for these platf
 |---|---|
 | `recipe` | a saved recipe |
 | `mapping` | or a mapping with sources given by header name |
+| `customFields` | custom fields an explicit `mapping` uses (a recipe brings its own) |
 | `autoMap` | match automatically when neither is given (default `true`) |
 | `dataset` | sheet or collection id (default: the recipe's, then the first) |
 | `headerRow` | header row (default: the recipe's, then detection) |

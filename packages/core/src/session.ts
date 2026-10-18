@@ -1,5 +1,15 @@
 import { collectSuggestions, type DistinctValue, distinctValues, enrichMapping } from './automap'
 import { coerceValue } from './coerce'
+import {
+  type CustomField,
+  type CustomFieldInput,
+  customFieldKey,
+  type ImportRecord,
+  restoreCustomFields,
+  suggestCustomField,
+  validateCustomField,
+  withCustomFields,
+} from './custom-fields'
 import { importError } from './errors'
 import { applySuggestions, assertFileSize, hashIds, runBatchValidators, toOutputRecord, tooManyRows } from './execution'
 import type { Importer, SubmitHandler } from './importer'
@@ -10,6 +20,7 @@ import { Store } from './store'
 import { applyFieldMapping } from './transforms'
 import type {
   DatasetInfo,
+  FieldDefinition,
   FieldMapping,
   ImportError,
   ImportEvent,
@@ -47,6 +58,7 @@ export const initialState = (): SessionState => ({
   sourceFields: [],
   rowCount: 0,
   mapping: {},
+  customFields: [],
   suggestions: [],
   recipe: null,
   rows: [],
@@ -106,8 +118,9 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
   getState = (): SessionState => this.store.get()
   subscribe = (listener: (state: SessionState, previous: SessionState) => void): (() => void) => this.store.subscribe(listener)
 
+  /** The importer's schema plus any custom fields the user added. */
   get schema() {
-    return this.importer.schema
+    return withCustomFields(this.importer.schema, this.getState().customFields)
   }
 
   // ───────────────────────────────────────────────────────────── navigation
@@ -298,7 +311,7 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
     const max = this.importer.config.maxRows
     if (max && this.#sourceRows.length > max) throw tooManyRows(max)
 
-    this.store.set({ sourceFields, rowCount: this.#sourceRows.length, busy: 'matching' })
+    this.store.set({ sourceFields, rowCount: this.#sourceRows.length, customFields: [], busy: 'matching' })
 
     // 1) Recipes  2) Matchers
     let mapping: Mapping = {}
@@ -307,6 +320,8 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
     if (store) {
       const found = findRecipe(await store.list(this.schema.id), sourceFields)
       if (found) {
+        // Custom fields first, so the recipe's mappings to them resolve.
+        this.store.set({ customFields: restoreCustomFields(found.customFields, this.importer.customFields, this.importer.schema) })
         mapping = applyRecipe(found, sourceFields, new Set(this.schema.fields.map((f) => f.key)))
         recipe = { id: found.id, ...(found.name ? { name: found.name } : {}), updatedAt: found.updatedAt }
       }
@@ -317,6 +332,53 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
     mapping = applySuggestions(this.importer, mapping, suggestions, this.#sourceRows, sourceFields)
     this.store.set({ mapping, suggestions, recipe })
     this.#goto('mapping')
+  }
+
+  // ───────────────────────────────────────────────────────────── custom fields
+
+  /**
+   * Add a field the schema doesn't have (`customFields` option). With `source`,
+   * the column is mapped to it right away. Throws `invalid_custom_field` with a
+   * message for the user when the field isn't allowed.
+   */
+  addCustomField(input: CustomFieldInput): CustomField {
+    const { customFields, mapping, sourceFields } = this.getState()
+    const taken = new Set(this.schema.fields.map((f) => f.key))
+    const field: CustomField = {
+      key: customFieldKey(input.label, taken),
+      label: input.label.trim(),
+      type: input.type,
+      ...(input.group ? { group: input.group } : {}),
+      ...(input.type === 'enum' && input.options?.length ? { options: input.options } : {}),
+    }
+    validateCustomField(field, this.importer.customFields, this.schema)
+    const next = [...customFields, field]
+    const schema = withCustomFields(this.importer.schema, next)
+    const definition = schema.fields.find((f) => f.key === field.key) as FieldDefinition
+    let nextMapping = mapping
+    if (input.source && sourceFields.some((s) => s.key === input.source)) {
+      // Same inference as a suggested mapping: date order, decimal separator, value map.
+      const m = enrichMapping(this.importer, definition, { sources: [input.source], origin: 'user' }, this.#sourceRows, sourceFields)
+      nextMapping = { ...mapping, [field.key]: m }
+    }
+    this.store.set({ customFields: next, mapping: nextMapping })
+    return field
+  }
+
+  /** Remove a custom field and its mapping. */
+  removeCustomField(key: string): void {
+    const { customFields, mapping } = this.getState()
+    if (!customFields.some((f) => f.key === key)) return
+    const { [key]: _removed, ...rest } = mapping
+    this.store.set({ customFields: customFields.filter((f) => f.key !== key), mapping: rest })
+  }
+
+  /** A starting point for adding `sourceKey` as a custom field: its header as name and a type that fits its values. */
+  suggestCustomField(sourceKey: string): CustomFieldInput | null {
+    const options = this.importer.customFields
+    const source = this.getState().sourceFields.find((s) => s.key === sourceKey)
+    if (!options || !source) return null
+    return suggestCustomField(source, this.sourceValues(sourceKey, 13), this.#sourceRows.length, options)
   }
 
   /** Set (or clear with `null`) the mapping of a target field. */
@@ -469,8 +531,10 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
 
   /** The current mapping as a portable recipe. */
   exportRecipe(name?: string): Recipe {
-    const { mapping, sourceFields, headerRow, dataset, recipe, format } = this.getState()
+    const { mapping, sourceFields, headerRow, dataset, recipe, format, customFields } = this.getState()
     return createRecipe(mapping, sourceFields, {
+      // Only the custom fields the mapping uses.
+      customFields: customFields.filter((f) => mapping[f.key]),
       ...(recipe?.id ? { id: recipe.id } : {}),
       ...((name ?? recipe?.name) ? { name: name ?? recipe?.name } : {}),
       ...(this.schema.id ? { schemaId: this.schema.id } : {}),
@@ -496,6 +560,7 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
   applyRecipe(input: Recipe | unknown): void {
     const recipe = parseRecipe(input, this.importer.transforms)
     const { sourceFields } = this.getState()
+    this.store.set({ customFields: restoreCustomFields(recipe.customFields, this.importer.customFields, this.importer.schema) })
     const mapping = applyRecipe(recipe, sourceFields, new Set(this.schema.fields.map((f) => f.key)))
     this.store.set({ mapping, recipe: { id: recipe.id, ...(recipe.name ? { name: recipe.name } : {}), updatedAt: recipe.updatedAt } })
   }
@@ -753,12 +818,12 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
     this.abort()
   }
 
-  #toRecord(row: ReviewRow): Promise<T> {
+  #toRecord(row: ReviewRow): Promise<ImportRecord<T>> {
     return toOutputRecord<T>(this.schema, row.values)
   }
 
   /** Valid records in batches (async iterable — never materialises everything at once). */
-  async *records(batchSize = this.importer.config.batchSize ?? 1000): AsyncGenerator<{ records: T[]; rows: ReviewRow[] }> {
+  async *records(batchSize = this.importer.config.batchSize ?? 1000): AsyncGenerator<{ records: ImportRecord<T>[]; rows: ReviewRow[] }> {
     const valid = this.getState().rows.filter((r) => !hasErrors(r))
     for (let i = 0; i < valid.length; i += batchSize) {
       const rows = valid.slice(i, i + batchSize)
@@ -767,8 +832,8 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
   }
 
   /** All valid records at once. */
-  async getRecords(): Promise<T[]> {
-    const out: T[] = []
+  async getRecords(): Promise<ImportRecord<T>[]> {
+    const out: ImportRecord<T>[] = []
     for await (const batch of this.records()) out.push(...batch.records)
     return out
   }
@@ -799,7 +864,15 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
         const batchRows = valid.slice(index * size, (index + 1) * size)
         const records = await Promise.all(batchRows.map((r) => this.#toRecord(r)))
         const batchId = `${this.id}:${hashIds(batchRows.map((r) => r.id))}`
-        const feedback = await handler({ records, rows: batchRows, index, total, batchId, signal })
+        const feedback = await handler({
+          records,
+          rows: batchRows,
+          index,
+          total,
+          batchId,
+          customFields: this.getState().customFields,
+          signal,
+        })
         const rejectedIds = new Set(feedback?.rejected?.map((r) => r.rowId))
         if (feedback?.rejected) this.#rejected.push(...feedback.rejected)
         for (const r of batchRows) if (!rejectedIds.has(r.id)) this.#accepted.add(r.id)

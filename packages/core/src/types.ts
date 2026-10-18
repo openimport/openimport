@@ -1,3 +1,4 @@
+import type { CustomField } from './custom-fields'
 import type { StandardSchemaV1 } from './standard-schema'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,6 +48,8 @@ export interface FieldDefinition {
   examples?: string[]
   /** Visual grouping in the mapping UI, e.g. `"Address"`. */
   group?: string
+  /** Added by the user during the import (see `customFields`). Its value is delivered in `record.$custom`. */
+  custom?: boolean
   /** Options for `enum` fields. */
   options?: EnumOption[]
   /** Accept a list of values. Strings are split on `separator` (default `,`). Empty input becomes `[]`. */
@@ -332,6 +335,8 @@ export interface Recipe {
   format?: string
   /** Target key → mapping, with `sources` expressed as source *labels* (not keys). */
   mapping: Mapping
+  /** Custom fields the mapping uses, restored when the recipe is applied. */
+  customFields?: CustomField[]
 }
 
 export interface RecipeStore {
@@ -378,6 +383,7 @@ export type ImportErrorCode =
   | 'too_many_rows'
   | 'invalid_recipe'
   | 'invalid_plugin'
+  | 'invalid_custom_field'
   | 'submit_failed'
   | 'aborted'
   | 'unknown'
@@ -435,6 +441,8 @@ export interface SessionState {
   sourceFields: SourceField[]
   rowCount: number
   mapping: Mapping
+  /** Fields the user added during this import (`customFields` option). They're part of `session.schema`. */
+  customFields: CustomField[]
   suggestions: MatchSuggestion[]
   /** Recipe applied to the current mapping, if any. */
   recipe: Pick<Recipe, 'id' | 'name' | 'updatedAt'> | null

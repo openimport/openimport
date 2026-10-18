@@ -55,7 +55,7 @@ In this order: data integrity first, then shared semantics, then contracts, then
    - [ ] **Undo / redo** in the review step
    - [ ] **Schema changes**: re-map saved recipes when fields are added, renamed or removed
    - [ ] Bulk fixes: "apply this fix to all 37 similar cells"
-   - [ ] Extra columns kept as custom fields
+   - [x] **Custom fields**: users add unmatched columns as typed, validated fields, delivered in `record.$custom` and saved with the mapping
    - [ ] Conditional fields (`requiredIf`) and upsert mode (create / update / skip per row)
    - [ ] More locales; more formats (`.xls`, `.ods`, Parquet) only after the above
 

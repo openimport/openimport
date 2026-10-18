@@ -1,3 +1,4 @@
+import { type CustomField, parseCustomField } from './custom-fields'
 import { importError } from './errors'
 import { checkTransformStep, type TransformRegistry } from './transforms'
 import type { FieldMapping, Mapping, Recipe, RecipeStore, SourceField, TransformStep } from './types'
@@ -9,7 +10,16 @@ const norm = (s: string) => s.trim().toLowerCase()
 export function createRecipe(
   mapping: Mapping,
   sourceFields: SourceField[],
-  meta: { id?: string; name?: string; schemaId?: string; headerRow?: number; dataset?: string; format?: string; createdAt?: string } = {},
+  meta: {
+    id?: string
+    name?: string
+    schemaId?: string
+    headerRow?: number
+    dataset?: string
+    format?: string
+    createdAt?: string
+    customFields?: CustomField[]
+  } = {},
 ): Recipe {
   const labelOf = new Map(sourceFields.map((f) => [f.key, f.label]))
   const now = new Date().toISOString()
@@ -29,6 +39,7 @@ export function createRecipe(
     ...(meta.headerRow !== undefined ? { headerRow: meta.headerRow } : {}),
     ...(meta.dataset ? { dataset: meta.dataset } : {}),
     ...(meta.format ? { format: meta.format } : {}),
+    ...(meta.customFields?.length ? { customFields: meta.customFields } : {}),
     mapping: out,
   }
 }
@@ -90,6 +101,13 @@ export function parseRecipe(input: unknown, registry?: TransformRegistry): Recip
     if (m.fallback !== undefined) fm.fallback = m.fallback
     mapping[target] = fm
   }
+  let customFields: CustomField[] | undefined
+  if (input.customFields !== undefined) {
+    if (!Array.isArray(input.customFields)) fail('"customFields" must be a list')
+    customFields = (input.customFields as unknown[]).map(
+      (raw, i) => parseCustomField(raw) ?? fail(`"customFields[${i}]" is not a valid custom field`),
+    )
+  }
   const now = new Date().toISOString()
   return {
     version: 1,
@@ -103,6 +121,7 @@ export function parseRecipe(input: unknown, registry?: TransformRegistry): Recip
     ...(input.headerRow !== undefined ? { headerRow: input.headerRow as number } : {}),
     ...(input.dataset ? { dataset: input.dataset as string } : {}),
     ...(input.format ? { format: input.format as string } : {}),
+    ...(customFields?.length ? { customFields } : {}),
   }
 }
 

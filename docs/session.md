@@ -32,6 +32,8 @@ upload → dataset? → header? → mapping → review → submitting → comple
 | `assign(field, column)` | map one column to one field |
 | `setMapping(field, mapping)` | full control: sources, transforms, valueMap |
 | `autoMap()`, `clearMapping()` | |
+| `addCustomField(input)`, `removeCustomField(key)` | a field the schema doesn't have; see [Custom fields](./custom-fields.md) |
+| `suggestCustomField(column)` | name, type and options to start that form with |
 | `previewField(field, mapping?)` | first values as they'd be imported |
 | `distinctValues(field)` | values and counts, for value maps |
 | `confirmMapping()` | validate every row and go to review |
@@ -60,6 +62,7 @@ const { step, busy, error, mapping, sourceFields, rows, stats } = session.getSta
 | `error` | `{ code, message }` for the user, or `null` |
 | `sourceFields` | columns with labels, sample values and inferred types |
 | `mapping` | field key → mapping |
+| `customFields` | fields the user added; `session.schema` includes them |
 | `rows` | review rows: `values`, `issues`, `sourceIndex` (line in the file) |
 | `stats` | `total`, `valid`, `withErrors`, `errorCount`, per-field counts |
 | `rowsVersion` | increases whenever rows change; use it to refetch row queries |
