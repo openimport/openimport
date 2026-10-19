@@ -78,6 +78,8 @@ export function ImportContacts() {
 
 Pass it straight in. Fields, labels, required flags, enums, formats and nesting come from [Standard JSON Schema](https://standardschema.dev), and every record is validated by zod itself, with zod's error messages shown in the review grid. ArkType works the same way; valibot needs `toStandardJsonSchema()` from `@valibot/to-json-schema`. All three are covered by tests.
 
+A plain JSON Schema, such as an OpenAPI request body, works with `fromJsonSchema(schema, { validate: ajv.compile(schema) })`. The validator is optional and yours to choose, so the core stays dependency-free. See [Schema](./docs/schema.md#plain-json-schema).
+
 ```ts
 const importer = createImporter({
   schema: z.object({

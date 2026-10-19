@@ -92,3 +92,43 @@ createImporter({ schema: toStandardJsonSchema(v.object({ email: v.pipe(v.string(
 ```
 
 Records are the schema's parsed output, so defaults and transforms apply. Nullable fields receive `null` and list fields `[]` when empty, so `.nullable()` and required arrays validate as you'd expect.
+
+Lists of objects (e.g. `z.array(z.object(…))`) can't come from a flat file. They're left out of the fields, with a warning in the console.
+
+---
+
+## Plain JSON Schema
+
+An OpenAPI request body or a `.schema.json` file works too. Wrap it with `fromJsonSchema()`:
+
+```ts
+import { fromJsonSchema } from '@openimport/core'
+import Ajv2020 from 'ajv/dist/2020'
+
+const body = openapi.paths['/contacts'].post.requestBody.content['application/json'].schema
+
+createImporter({
+  schema: fromJsonSchema(body, {
+    validate: new Ajv2020({ allErrors: true, strict: false }).compile(body), // optional
+    exclude: ['phones'],
+    fields: { vatId: { aliases: ['USt-IdNr'] } },
+  }),
+  plugins: [csv()],
+})
+```
+
+Fields come from `properties`: nested objects become groups (`address.city` under "Address"), `required`, `enum`, `format` (email, date, date-time, uri), min/max, `pattern`, `default` and `examples` carry over, and `title` becomes the label. `x-aliases` adds header names to match and `x-unique: true` marks a field unique.
+
+| Option | |
+|---|---|
+| `validate` | a compiled validator such as `ajv.compile(schema)`, to check each record against the whole schema |
+| `exclude` | dot paths to leave out |
+| `fields` | per-field overrides: labels, aliases, descriptions |
+| `id`, `name`, `validateRow`, `validateBatch` | as in `defineSchema` |
+
+**Without `validate`**, only what becomes a field rule is checked. `oneOf`, `anyOf`, `if`/`then`, `dependentRequired` and `additionalProperties` need a validator. OpenImport doesn't bundle one, so the core stays free of dependencies. Errors land on the field they point to; rules about the whole record (an `anyOf`, say) show on the row.
+
+- Use a validator for your schema's draft: Ajv's default export is draft-07 and ignores `dependentRequired`; use `ajv/dist/2020` for 2019-09 and 2020-12 schemas. With `strict: false`, Ajv accepts vendor keywords like `x-aliases`.
+- **Lists of objects** (`phones: [{ number }]`) can't come from a flat file, so `fromJsonSchema` refuses them with a message naming the property. Leave them out with `exclude`, or import them separately.
+- Resolve `$ref`s that point to other documents first (an OpenAPI spec's `#/components/…`). Refs inside the schema (`#/$defs/…`) are followed.
+- [Custom fields](./custom-fields.md) stay out of the validation, so `additionalProperties: false` doesn't reject them.

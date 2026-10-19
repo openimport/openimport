@@ -118,7 +118,11 @@ export function defineSchema(
     const json = input['~standard'].jsonSchema.input({ target: 'draft-2020-12' })
     const overrides = extras?.fields ?? {}
     // Constraints are enforced by the schema itself (with the library's own messages).
-    const fields = fieldsFromJsonSchema(json).map(({ min: _min, max: _max, pattern: _pattern, ...f }) =>
+    const skipped: string[] = []
+    const derived = collectFields(json, { prefix: '', group: undefined, exclude: new Set(), skipped })
+    if (skipped.length)
+      console.warn(`[openimport] Lists of objects can't be imported from a flat file and were left out: ${skipped.join(', ')}`)
+    const fields = derived.map(({ min: _min, max: _max, pattern: _pattern, ...f }) =>
       normalizeField({ ...f, ...overrides[f.key], key: f.key }),
     )
     const { fields: _ignored, ...rest } = extras ?? {}
@@ -184,9 +188,24 @@ const FORMAT_TYPES: Record<string, FieldType> = {
 
 /**
  * Converts a JSON Schema object into importer fields. Nested objects become
- * dot-path keys; arrays of primitives become `multiple` fields.
+ * dot-path keys; arrays of primitives become `multiple` fields. Arrays of
+ * objects can't come from a flat file and are left out (see `fromJsonSchema`).
  */
 export function fieldsFromJsonSchema(schema: JsonSchema, prefix = '', group?: string): FieldDefinition[] {
+  return collectFields(schema, { prefix, group, exclude: new Set(), skipped: [] })
+}
+
+export interface CollectOptions {
+  prefix: string
+  group: string | undefined
+  /** Dot paths to leave out, with everything below them. */
+  exclude: Set<string>
+  /** Receives the dot paths of arrays of objects that were left out. */
+  skipped: string[]
+}
+
+export function collectFields(schema: JsonSchema, o: CollectOptions): FieldDefinition[] {
+  const { prefix, group } = o
   const root = resolveRef(schema, schema)
   const props: Record<string, JsonSchema> = root.properties ?? {}
   const required = new Set<string>(root.required ?? [])
@@ -194,14 +213,14 @@ export function fieldsFromJsonSchema(schema: JsonSchema, prefix = '', group?: st
 
   for (const [name, raw] of Object.entries(props)) {
     const key = prefix ? `${prefix}.${name}` : name
+    if (o.exclude.has(key)) continue
     const { node, nullable } = unwrapNullable(resolveRef(raw, schema))
 
     if (node.type === 'object' && node.properties) {
       out.push(
-        ...fieldsFromJsonSchema(
-          { ...node, $defs: schema.$defs },
-          key,
-          node.title ?? (group ? `${group} › ${humanize(name)}` : humanize(name)),
+        ...collectFields(
+          { ...node, $defs: schema.$defs, definitions: schema.definitions },
+          { ...o, prefix: key, group: node.title ?? (group ? `${group} › ${humanize(name)}` : humanize(name)) },
         ),
       )
       continue
@@ -209,6 +228,11 @@ export function fieldsFromJsonSchema(schema: JsonSchema, prefix = '', group?: st
 
     const isArray = node.type === 'array'
     const item = isArray ? unwrapNullable(resolveRef(node.items ?? {}, schema)).node : node
+    if (isArray && (item.type === 'object' || item.properties)) {
+      // A list of objects (e.g. several addresses) has no single-cell representation.
+      o.skipped.push(key)
+      continue
+    }
     const enumValues: unknown[] | undefined = item.enum ?? (item.const !== undefined ? [item.const] : undefined)
     const anyOfConsts = (item.anyOf ?? item.oneOf)?.every((s: JsonSchema) => s.const !== undefined)
       ? (item.anyOf ?? item.oneOf).map((s: JsonSchema) => s.const)
@@ -235,8 +259,10 @@ export function fieldsFromJsonSchema(schema: JsonSchema, prefix = '', group?: st
     if (nullable) field.nullable = true
     if (isArray) field.multiple = true
     if (options) field.options = options.map((v: unknown) => ({ value: String(v) }))
-    const min = item.minimum ?? item.exclusiveMinimum ?? item.minLength
-    const max = item.maximum ?? item.exclusiveMaximum ?? item.maxLength
+    // Exclusive bounds only translate exactly for integers; a validator enforces the rest.
+    const exclusive = (bound: unknown, step: number) => (typeof bound === 'number' && type === 'integer' ? bound + step : undefined)
+    const min = item.minimum ?? exclusive(item.exclusiveMinimum, 1) ?? item.minLength
+    const max = item.maximum ?? exclusive(item.exclusiveMaximum, -1) ?? item.maxLength
     if (typeof min === 'number' && Math.abs(min) < Number.MAX_SAFE_INTEGER) field.min = min
     if (typeof max === 'number' && Math.abs(max) < Number.MAX_SAFE_INTEGER) field.max = max
     if (item.pattern && type === 'string') field.pattern = item.pattern
@@ -248,6 +274,102 @@ export function fieldsFromJsonSchema(schema: JsonSchema, prefix = '', group?: st
     out.push(field)
   }
   return out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plain JSON Schema (e.g. an OpenAPI request body) as the importer's schema
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One validation error, as Ajv (6 or 8) and similar validators report it. */
+export interface JsonSchemaError {
+  /** Ajv 8: `/address/city` */
+  instancePath?: string
+  /** Ajv 6: `.address.city` */
+  dataPath?: string
+  /** e.g. schemasafe: `#/address/city` */
+  instanceLocation?: string
+  keyword?: string
+  message?: string
+  params?: { missingProperty?: string; [key: string]: unknown }
+}
+
+/**
+ * A compiled validator: returns `true` or `false` and puts its errors on
+ * `.errors`, like `ajv.compile(schema)`. Ajv's `$async` schemas return a promise.
+ */
+export type JsonSchemaValidator = ((data: unknown) => boolean | Promise<unknown>) & { errors?: JsonSchemaError[] | null }
+
+export interface JsonSchemaOptions extends StandardSchemaExtras {
+  /**
+   * Validates each finished record against the whole JSON Schema. Without it,
+   * only what translates into field rules is checked: required, enum, format,
+   * min/max and pattern. `oneOf`, `if`/`then`, `dependentRequired` and the
+   * like need a validator.
+   */
+  validate?: JsonSchemaValidator
+  /** Dot paths to leave out, e.g. `['addresses']` for a list of objects. */
+  exclude?: string[]
+}
+
+/**
+ * Use a plain JSON Schema object (an OpenAPI request body, a `.schema.json`
+ * file) as the importer's schema. Resolve `$ref`s that point to other
+ * documents first; refs inside the schema (`#/$defs/…`) are followed.
+ */
+export function fromJsonSchema<T = Record<string, unknown>>(json: object, options: JsonSchemaOptions = {}): ImportSchema<T> {
+  const root = json as JsonSchema
+  if (typeof root !== 'object' || root === null || typeof root.properties !== 'object')
+    throw new Error('[openimport] fromJsonSchema needs an object schema with `properties`')
+  const { validate, exclude = [], fields: overrides = {}, ...extras } = options
+  const skipped: string[] = []
+  const derived = collectFields(root, { prefix: '', group: undefined, exclude: new Set(exclude), skipped })
+  if (skipped.length) {
+    const list = skipped.map((p) => `'${p}'`).join(', ')
+    throw new Error(
+      `[openimport] Lists of objects can't be mapped from a flat file: ${list}. Leave them out with { exclude: [${list}] }, or import them separately.`,
+    )
+  }
+  const fields = derived.map((f) => normalizeField({ ...f, ...overrides[f.key], key: f.key }))
+  assertValidKeys(fields)
+  return {
+    ...(typeof root.title === 'string' ? { name: root.title } : {}),
+    ...(typeof root.$id === 'string' ? { id: root.$id } : {}),
+    ...extras,
+    fields,
+    ...(validate ? { standard: standardFromValidator<T>(validate) } : {}),
+  }
+}
+
+/** Wrap a compiled validator as a Standard Schema, so issues land on the right fields. */
+function standardFromValidator<T>(validate: JsonSchemaValidator): StandardSchemaV1<unknown, T> {
+  const toIssues = (errors: JsonSchemaError[]): StandardSchemaV1.Issue[] =>
+    errors.map((e) => {
+      const location = e.instancePath ?? e.instanceLocation?.replace(/^#/, '') ?? e.dataPath?.replace(/\./g, '/') ?? ''
+      const path = location
+        .split('/')
+        .filter(Boolean)
+        .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'))
+      // "required" points at the parent object; the missing property is in params.
+      if (e.params?.missingProperty) path.push(e.params.missingProperty)
+      return { message: e.message ?? 'is invalid', path }
+    })
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'openimport-json-schema',
+      validate: (value) => {
+        const result = validate(value)
+        if (result instanceof Promise)
+          return result.then(
+            () => ({ value: value as T }),
+            (error: { errors?: JsonSchemaError[]; message?: string }) => ({
+              issues: toIssues(error?.errors ?? [{ message: error?.message ?? String(error) }]),
+            }),
+          )
+        return result ? { value: value as T } : { issues: toIssues(validate.errors ?? [{ message: 'is invalid' }]) }
+      },
+    },
+  }
 }
 
 function resolveRef(node: JsonSchema, root: JsonSchema): JsonSchema {

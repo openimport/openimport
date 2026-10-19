@@ -104,6 +104,14 @@ export function createImporter<T>(config: ImporterConfig<T>): Importer<T> {
   const schema = (
     hasJsonSchema(config.schema) && !('fields' in config.schema) ? defineSchema(config.schema) : config.schema
   ) as ImportSchema<T>
+  if (!Array.isArray((schema as Partial<ImportSchema<T>>)?.fields)) {
+    const looksLikeJsonSchema = typeof schema === 'object' && schema !== null && ('properties' in schema || '$schema' in schema)
+    throw new Error(
+      looksLikeJsonSchema
+        ? '[openimport] This looks like a plain JSON Schema. Wrap it: createImporter({ schema: fromJsonSchema(schema) })'
+        : '[openimport] `schema` needs `fields`: use defineSchema(), fromJsonSchema() or a zod / valibot / arktype schema',
+    )
+  }
   const plugins = config.plugins ?? []
   assertNoCollisions(plugins)
   const formats = plugins.flatMap((p) => p.formats ?? [])

@@ -31,8 +31,17 @@ export {
   parseRecipe,
   recipeFit,
 } from './recipe'
-export type { FieldOptions, FieldSpec, InferFieldValue, InferRecord, InferSchema } from './schema'
-export { assertValidKeys, defineSchema, field, fieldsFromJsonSchema, getField } from './schema'
+export type {
+  FieldOptions,
+  FieldSpec,
+  InferFieldValue,
+  InferRecord,
+  InferSchema,
+  JsonSchemaError,
+  JsonSchemaOptions,
+  JsonSchemaValidator,
+} from './schema'
+export { assertValidKeys, defineSchema, field, fieldsFromJsonSchema, fromJsonSchema, getField } from './schema'
 export type { FieldPreview } from './session'
 export { ImportSession, initialState } from './session'
 export type { SessionLike } from './session-like'
