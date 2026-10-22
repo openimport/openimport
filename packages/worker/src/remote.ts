@@ -1,4 +1,5 @@
 import {
+  type AssignOptions,
   type CustomField,
   type CustomFieldInput,
   type DistinctValue,
@@ -171,7 +172,7 @@ export class RemoteSession<T = Record<string, unknown>> implements SessionLike<T
   setHeaderRow = (index: number) => this.#call<void>('setHeaderRow', [index])
   confirmHeader = () => this.#call<void>('confirmHeader')
   setMapping = (target: string, mapping: FieldMapping | null) => this.#call<void>('setMapping', [target, mapping])
-  assign = (target: string, source: string | null) => this.#call<void>('assign', [target, source])
+  assign = (target: string, source: string | null, options?: AssignOptions) => this.#call<void>('assign', [target, source, options])
   clearMapping = () => this.#call<void>('clearMapping')
   addCustomField = (input: CustomFieldInput) => this.#call<CustomField>('addCustomField', [input])
   removeCustomField = (key: string) => this.#call<void>('removeCustomField', [key])

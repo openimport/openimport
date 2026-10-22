@@ -84,20 +84,22 @@ export function UploadStep() {
             </Button>
           )}
         </div>
-        <details className="oi-expected">
-          <summary>
-            {m.upload.expected} <Badge>{fields.length}</Badge>
-          </summary>
-          <ul>
-            {fields.map((f) => (
-              <li key={f.key}>
-                <span>{f.label}</span>
-                {f.required && <span className="oi-required">{m.upload.required}</span>}
-                {f.description && <span className="oi-muted"> — {f.description}</span>}
-              </li>
-            ))}
-          </ul>
-        </details>
+        {fields.length > 0 && (
+          <details className="oi-expected">
+            <summary>
+              {m.upload.expected} <Badge>{fields.length}</Badge>
+            </summary>
+            <ul>
+              {fields.map((f) => (
+                <li key={f.key}>
+                  <span>{f.label}</span>
+                  {f.required && <span className="oi-required">{m.upload.required}</span>}
+                  {f.description && <span className="oi-muted"> — {f.description}</span>}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
     </div>
   )

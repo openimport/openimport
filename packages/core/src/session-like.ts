@@ -2,7 +2,17 @@ import type { DistinctValue } from './automap'
 import type { CustomField, CustomFieldInput } from './custom-fields'
 import type { Importer, SubmitHandler } from './importer'
 import type { FieldPreview } from './session'
-import type { FieldMapping, MaybePromise, Recipe, ReviewRow, RowQuery, SessionState, SourceFile, SubmitResult } from './types'
+import type {
+  AssignOptions,
+  FieldMapping,
+  MaybePromise,
+  Recipe,
+  ReviewRow,
+  RowQuery,
+  SessionState,
+  SourceFile,
+  SubmitResult,
+} from './types'
 
 /**
  * What a UI needs from an import session. `ImportSession` implements it
@@ -24,7 +34,7 @@ export interface SessionLike<T = Record<string, unknown>> {
   confirmHeader(): Promise<void>
 
   setMapping(target: string, mapping: FieldMapping | null): MaybePromise<void>
-  assign(target: string, source: string | null): MaybePromise<void>
+  assign(target: string, source: string | null, options?: AssignOptions): MaybePromise<void>
   clearMapping(): MaybePromise<void>
   /** Add a field the schema doesn't have (needs the `customFields` option). */
   addCustomField(input: CustomFieldInput): MaybePromise<CustomField>

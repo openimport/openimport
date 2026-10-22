@@ -457,6 +457,11 @@ export interface SessionState {
 }
 
 /** Which review rows to look at. */
+export interface AssignOptions {
+  /** Remove the column from other targets it alone fills (default `true`). */
+  exclusive?: boolean
+}
+
 export interface RowQuery {
   filter?: 'all' | 'errors' | 'valid'
   /** Only rows with an issue on this field. */

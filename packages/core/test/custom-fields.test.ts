@@ -210,3 +210,37 @@ describe('custom fields', () => {
     expect(plain.every((r) => r.$custom === undefined)).toBe(true)
   })
 })
+
+describe('assign', () => {
+  it('infers date order and value maps like a suggestion does', async () => {
+    const schema2 = defineSchema({
+      fields: {
+        since: field.date(),
+        tier: field.enum(['gold', 'silver', 'bronze']),
+      },
+    })
+    const importer = createImporter({ schema: schema2, plugins: [testFormats], recipes: false, autoMapThreshold: 2 })
+    const session = importer.createSession()
+    await session.loadFile(sourceFromString('A,B\n13.01.2024,Gold\n25.12.2023,Silber\n', 'a.csv'))
+    expect(session.getState().mapping).toEqual({}) // nothing applied automatically
+    const [a, b] = session.getState().sourceFields
+    session.assign('since', a?.key as string)
+    session.assign('tier', b?.key as string)
+    expect(session.getState().mapping.since?.options?.dateOrder).toBe('DMY')
+    expect(session.previewField('since').map((p) => p.output)).toEqual(['2024-01-13', '2023-12-25'])
+    expect(session.getState().mapping.tier?.origin).toBe('user')
+  })
+
+  it('keeps the column on other fields with exclusive: false', async () => {
+    const schema2 = defineSchema({ fields: { a: field.string(), b: field.string() } })
+    const importer = createImporter({ schema: schema2, plugins: [testFormats], recipes: false, autoMapThreshold: 2 })
+    const session = importer.createSession()
+    await session.loadFile(sourceFromString('x\n1\n2', 'x.csv'))
+    const key = session.getState().sourceFields[0]?.key as string
+    session.assign('a', key)
+    session.assign('b', key)
+    expect(Object.keys(session.getState().mapping)).toEqual(['b'])
+    session.assign('a', key, { exclusive: false })
+    expect(Object.keys(session.getState().mapping).sort()).toEqual(['a', 'b'])
+  })
+})

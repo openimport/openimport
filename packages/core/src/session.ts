@@ -19,6 +19,7 @@ import { detectHeaderRow, fieldsFromGrid, fieldsFromRecords, flattenRecord, grid
 import { Store } from './store'
 import { applyFieldMapping } from './transforms'
 import type {
+  AssignOptions,
   DatasetInfo,
   FieldDefinition,
   FieldMapping,
@@ -406,17 +407,25 @@ export class ImportSession<T = Record<string, unknown>> implements SessionLike<T
     this.store.set({ mapping: next })
   }
 
-  /** Map one source column to a target, removing it from any other target it was mapped to (1:1 semantics). */
-  assign(target: string, source: string | null): void {
+  /**
+   * Map one source column to a target. By default the column leaves any other target it was
+   * mapped to (1:1); with `exclusive: false` it can feed several targets, e.g. one entity per group.
+   */
+  assign(target: string, source: string | null, options: AssignOptions = {}): void {
     if (source === null) {
       this.setMapping(target, null)
       return
     }
-    const current = this.getState().mapping
-    for (const [key, m] of Object.entries(current)) {
-      if (key !== target && m.sources.length === 1 && m.sources[0] === source && !m.transforms?.length) this.setMapping(key, null)
+    if (options.exclusive !== false) {
+      const current = this.getState().mapping
+      for (const [key, m] of Object.entries(current)) {
+        if (key !== target && m.sources.length === 1 && m.sources[0] === source && !m.transforms?.length) this.setMapping(key, null)
+      }
     }
-    this.setMapping(target, { sources: [source] })
+    // Same inference as a suggestion: date order, decimal separator, value map
+    const field = this.schema.fields.find((f) => f.key === target)
+    const mapping: FieldMapping = { sources: [source], origin: 'user' }
+    this.setMapping(target, field ? enrichMapping(this.importer, field, mapping, this.#sourceRows, this.getState().sourceFields) : mapping)
   }
 
   clearMapping(): void {
