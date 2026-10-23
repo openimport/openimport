@@ -104,34 +104,89 @@ export function dice(a: string, b: string): number {
   return (2 * overlap) / (a.length - 1 + (b.length - 1))
 }
 
-/** Similarity between two header-ish strings, 0…1. */
-export function similarity(a: string, b: string, concepts: ConceptMap = CONCEPT): number {
-  const ta = tokenize(a)
-  const tb = tokenize(b)
-  const ca = ta.join('')
-  const cb = tb.join('')
+/** A header-ish string, tokenised once: matching compares each one with many others. */
+interface PreparedHeader {
+  tokens: string[]
+  tokenSet: Set<string>
+  compact: string
+  bigrams: Map<string, number>
+  /** Concept of the whole header */
+  concept: number | undefined
+  /** Concepts of the whole header and of each token */
+  tokenConcepts: Set<number>
+  /** Concept of the whole header, or of its only token */
+  soleConcept: number | undefined
+}
+
+function prepare(input: string, concepts: ConceptMap): PreparedHeader {
+  const tokens = tokenize(input)
+  const compacted = tokens.join('')
+  const concept = concepts.get(compacted)
+  const tokenConcepts = new Set(tokens.map((t) => concepts.get(t)).filter((x) => x !== undefined))
+  if (concept !== undefined) tokenConcepts.add(concept)
+  return {
+    tokens,
+    tokenSet: new Set(tokens),
+    compact: compacted,
+    bigrams: bigrams(compacted),
+    concept,
+    tokenConcepts,
+    soleConcept: concept ?? (tokens.length === 1 ? concepts.get(tokens[0] as string) : undefined),
+  }
+}
+
+/** Prepared headers by their text, for one matching run (one concept map). */
+type HeaderCache = Map<string, PreparedHeader>
+
+function prepared(input: string, concepts: ConceptMap, cache?: HeaderCache): PreparedHeader {
+  if (!cache) return prepare(input, concepts)
+  let hit = cache.get(input)
+  if (!hit) {
+    hit = prepare(input, concepts)
+    cache.set(input, hit)
+  }
+  return hit
+}
+
+function diceOf(a: PreparedHeader, b: PreparedHeader): number {
+  if (a.compact === b.compact) return 1
+  if (a.compact.length < 2 || b.compact.length < 2) return 0
+  const [small, large] = a.bigrams.size <= b.bigrams.size ? [a.bigrams, b.bigrams] : [b.bigrams, a.bigrams]
+  let overlap = 0
+  for (const [g, n] of small) overlap += Math.min(n, large.get(g) ?? 0)
+  return (2 * overlap) / (a.compact.length - 1 + (b.compact.length - 1))
+}
+
+function similarityOf(pa: PreparedHeader, pb: PreparedHeader): number {
+  const ta = pa.tokens
+  const tb = pb.tokens
+  const ca = pa.compact
+  const cb = pb.compact
   if (!ca || !cb) return 0
   if (ca === cb) return 1
-  const conceptA = concepts.get(ca)
-  const conceptWhole = concepts.get(cb)
+  const conceptA = pa.concept
+  const conceptWhole = pb.concept
   if (conceptA !== undefined && conceptA === conceptWhole) return 0.95
   // Two different well-known concepts ("First name" vs "Last name") never match.
   const distinctConcepts = conceptA !== undefined && conceptWhole !== undefined
-  const setB = new Set(tb)
-  const shared = ta.filter((t) => setB.has(t)).length
+  let shared = 0
+  for (const t of ta) if (pb.tokenSet.has(t)) shared++
   const tokenScore = shared / Math.max(ta.length, tb.length)
-  let score = Math.max(dice(ca, cb), tokenScore)
+  let score = Math.max(diceOf(pa, pb), tokenScore)
   // "customer email" vs "email": containment of a meaningful token sequence
   const [short, long] = ca.length < cb.length ? [ca, cb] : [cb, ca]
   if (short.length >= 4 && long.includes(short)) score = Math.max(score, 0.7 + 0.25 * (short.length / long.length))
   // Concept match on any token ("Kunde E-Mail" → email)
   if (score < 0.8) {
-    const conceptsA = new Set(ta.map((t) => concepts.get(t)).filter((x) => x !== undefined))
-    if (conceptA !== undefined) conceptsA.add(conceptA)
-    const conceptB = concepts.get(cb) ?? (tb.length === 1 ? concepts.get(tb[0] as string) : undefined)
-    if (conceptB !== undefined && conceptsA.has(conceptB)) score = Math.max(score, 0.8)
+    const conceptB = pb.soleConcept
+    if (conceptB !== undefined && pa.tokenConcepts.has(conceptB)) score = Math.max(score, 0.8)
   }
   return distinctConcepts ? Math.min(score, 0.4) : score
+}
+
+/** Similarity between two header-ish strings, 0…1. */
+export function similarity(a: string, b: string, concepts: ConceptMap = CONCEPT): number {
+  return similarityOf(prepare(a, concepts), prepare(b, concepts))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,26 +229,49 @@ function sourceVariants(label: string): string[] {
   return [label, leaf, `${leaf} ${parent}`, `${parent} ${leaf}`]
 }
 
-/** Score one source column against one target field, 0…1. */
-export function scoreMatch(field: FieldDefinition, source: SourceField, concepts: ConceptMap = CONCEPT): { score: number; reason: string } {
-  const candidates = [field.key.split('.').at(-1) as string, field.key, field.label, ...(field.aliases ?? [])]
-  const variants = sourceVariants(source.label)
+/** The names a field can be recognised by: key leaf, key, label, aliases. */
+const fieldCandidates = (field: FieldDefinition): string[] => [
+  field.key.split('.').at(-1) as string,
+  field.key,
+  field.label,
+  ...(field.aliases ?? []),
+]
+
+function scorePrepared(
+  field: FieldDefinition,
+  source: SourceField,
+  candidates: Array<[name: string, header: PreparedHeader]>,
+  variants: PreparedHeader[],
+): { score: number; via: string; exact: boolean } {
   let best = 0
   let via = field.label
-  for (const c of candidates) {
+  for (const [c, pc] of candidates) {
     for (const [i, v] of variants.entries()) {
       // Partial path variants are slightly less trustworthy than the full label.
-      const s = similarity(v, c, concepts) * (i === 0 ? 1 : 0.97)
+      const s = similarityOf(v, pc) * (i === 0 ? 1 : 0.97)
       if (s > best) {
         best = s
         via = c
       }
     }
   }
-  const affinity = typeAffinity(field, source)
-  const score = Math.max(0, Math.min(1, best + (best > 0.4 ? affinity : 0)))
-  const reason = best === 1 ? `"${source.label}" = "${via}"` : `"${source.label}" ≈ "${via}"`
-  return { score, reason }
+  const affinity = best > 0.4 ? typeAffinity(field, source) : 0
+  const score = Math.max(0, Math.min(1, best + affinity))
+  return { score, via, exact: best === 1 }
+}
+
+const reasonFor = (source: SourceField, match: { via: string; exact: boolean }) =>
+  match.exact ? `"${source.label}" = "${match.via}"` : `"${source.label}" ≈ "${match.via}"`
+
+/** Score one source column against one target field, 0…1. */
+export function scoreMatch(field: FieldDefinition, source: SourceField, concepts: ConceptMap = CONCEPT): { score: number; reason: string } {
+  const match = scorePrepared(
+    field,
+    source,
+    fieldCandidates(field).map((c) => [c, prepare(c, concepts)]),
+    sourceVariants(source.label).map((v) => prepare(v, concepts)),
+  )
+  return { score: match.score, reason: reasonFor(source, match) }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,11 +298,17 @@ export function fuzzyMatcher(options: FuzzyMatcherOptions = {}): Matcher {
     priority: 0,
     match: ({ schema, sourceFields, mapping }) => {
       const pairs: MatchSuggestion[] = []
+      // every header is tokenised once, not once per pair (a wide file has ~a million)
+      const cache: HeaderCache = new Map()
+      const variants = sourceFields.map((source) => sourceVariants(source.label).map((v) => prepared(v, concepts, cache)))
       for (const field of schema.fields) {
         if (mapping[field.key]) continue
-        for (const source of sourceFields) {
-          const { score, reason } = scoreMatch(field, source, concepts)
-          if (score >= threshold) pairs.push({ target: field.key, sources: [source.key], confidence: round(score), reason })
+        const candidates = fieldCandidates(field).map((c): [string, PreparedHeader] => [c, prepared(c, concepts, cache)])
+        for (const [index, source] of sourceFields.entries()) {
+          const match = scorePrepared(field, source, candidates, variants[index] as PreparedHeader[])
+          if (match.score >= threshold) {
+            pairs.push({ target: field.key, sources: [source.key], confidence: round(match.score), reason: reasonFor(source, match) })
+          }
         }
       }
       return assignGreedy(pairs, usedPlainSources(mapping))
