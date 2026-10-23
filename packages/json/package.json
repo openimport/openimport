@@ -1,6 +1,6 @@
 {
   "name": "@openimport/json",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JSON and JSON Lines format plugins for OpenImport with automatic record discovery.",
   "license": "MIT",
   "type": "module",

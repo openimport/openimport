@@ -1,6 +1,6 @@
 {
   "name": "@openimport/csv",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zero-dependency streaming CSV/TSV format plugin for OpenImport (encoding + delimiter detection).",
   "license": "MIT",
   "type": "module",

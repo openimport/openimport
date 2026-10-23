@@ -1,6 +1,6 @@
 {
   "name": "@openimport/ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bring-your-own-model AI column matching for openimport.",
   "license": "MIT",
   "type": "module",

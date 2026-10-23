@@ -1,6 +1,6 @@
 {
   "name": "@openimport/xml",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "XML format plugin for OpenImport with automatic record discovery.",
   "license": "MIT",
   "type": "module",
