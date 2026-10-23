@@ -1,6 +1,6 @@
 {
   "name": "@openimport/worker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Run OpenImport sessions in a Web Worker: parsing and validation off the main thread, rows paged to the UI.",
   "license": "MIT",
   "type": "module",

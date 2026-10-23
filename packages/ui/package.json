@@ -1,6 +1,6 @@
 {
   "name": "@openimport/ui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A beautiful, accessible, ready-made React import experience for openimport.",
   "license": "MIT",
   "type": "module",
