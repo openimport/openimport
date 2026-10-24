@@ -30,13 +30,13 @@
     "e2e:perf": "PERF=1 pnpm --filter @openimport/e2e perf"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
+    "@biomejs/biome": "^2.6.2",
     "@changesets/cli": "^3.0.3",
     "@types/node": "^26.6.5",
     "@valibot/to-json-schema": "^1.8.0",
-    "arktype": "^2.2.8",
+    "arktype": "^2.2.9",
     "fake-indexeddb": "^6.2.6",
-    "happy-dom": "^21.0.3",
+    "happy-dom": "^21.0.4",
     "publint": "^0.3.25",
     "tsdown": "^0.23.1",
     "typescript": "^7.0.2",
