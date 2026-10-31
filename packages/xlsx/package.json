@@ -53,6 +53,6 @@
     "fflate": "^0.8.3"
   },
   "dependencies": {
-    "read-excel-file": "^9.3.12"
+    "read-excel-file": "^9.3.13"
   }
 }
